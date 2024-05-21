@@ -1,0 +1,131 @@
+function gsapAnims(tokn) {
+          console.log("tokn is " + tokn);
+          console.log("gsapAnimToggle is " + gsapAnimToggle);
+
+          if (gsapAnimToggle == 0) {
+	scene.add( gsapAnim2_7a );
+	scene.add( gsapAnim2_7b );
+	console.log("The two scenes have been added");
+          } else { }
+
+/* This had no effect
+          if (gsapAnimToggle == 1) {
+	scene.remove( gsapAnim2_7a );
+	scene.remove( gsapAnim2_7b );
+	console.log("old versions of scene supposedly removed");
+          } else { }
+*/
+// next two lines might be later isolated to if condition
+          if (gsapAnimToggle == 0) {
+	gsapAnimToggle = 1;
+          } else { }
+          console.log("gsapAnimToggle is " + gsapAnimToggle);
+
+/*  CODE TO ADAPT
+var tl = gsap.timeline({repeat: 2, repeatDelay: 1});
+tl.to("#id", {x: 100, duration: 1});
+// then we can control the whole thing easily...
+tl.pause();
+tl.resume();
+tl.seek(1.5);
+tl.reverse();
+//To repeat indefinitely, use -1.
+// 90 degrees is 0.17453292519943295
+// 360 degrees is 0.6981317007977316
+// 10 times is 6.981317007977316
+// pi x 2 per pi calculator: = 6.28318530718
+// pi x 2.5 per pi calculator:  = 7.85398163397
+// pi x 2.25 per pi calculator:  =   7.06858347058
+// pi x .5 per pi calculator:  =   1.57079632679
+*/
+
+// consider taking out hard-coding here once other changes made: 
+gsapAnim2_7a.rotation.z = 0;
+
+var spinRate = 0;
+var anim2_7a_tl = gsap.timeline({repeat: 0, repeatDelay: 0});
+anim2_7a_tl.to(gsapAnim2_7a.rotation, {
+            //delay: 1,
+//            z: -1.57079632679,
+//            duration: 3.4
+            z: spinRate,
+            duration: 1
+            });
+//anim2_7a_tl.pause();
+/*
+//consider 1700 seconds (28 1/3 minutes) single-run as workaround to repeats
+//@@@
+possible code to use:
+toggles the paused state
+tl.paused(!tl.paused());
+Consider: add( child:[Tween | Timeline | Label | Callback | Array], position:[Number | String | Label] ) : self
+	which is: [override] Adds a tween, timeline, callback, or label (or an array of them) to the timeline.
+Consider: clear( labels:Boolean ) : self
+	Empties the timeline of all tweens, timelines, and callbacks (and optionally labels too).
+Consider: kill( ) : Timeline
+	Immediately kills the timeline and removes it from its parent timeline, stopping its animation.
+Consider: remove( value:[Tween | Timeline | Callback | Label] ) : self
+	Removes a tween, timeline, callback, or label (or array of them) from the timeline.
+https://gsap.com/docs/v3/GSAP/Timeline/clear()/
+https://gsap.com/docs/v3/GSAP/Timeline/add()/
+https://gsap.com/docs/v3/GSAP/Timeline/kill()/
+https://gsap.com/docs/v3/GSAP/Timeline/remove()/
+*/
+
+//	function gsapAnm_2_7a() {
+			// this comes off pressing "3"
+	if(tokn == "2_7a") {		// this comes off pressing "3"
+//		console.log("gsapAnm_2_7a is targeted!");
+//		anim2_7a_tl.restart();
+//		anim2_7a_tl.play();
+		anim2_7a_tl.totalProgress(1.0);
+		anim2_7a_tl.pause();
+		anim2_7a_tl.kill();	//-- even this didn't work!!
+		spinRate = -785.398163397;
+		anim2_7a_tl.to(gsapAnim2_7a.rotation, {
+		            z: spinRate,
+		            duration: 1700
+		            });
+		anim2_7a_tl.play(0);
+//		anim2_7a_tl.paused(!anim2_7a_tl.paused());
+//		while (tokn == "2_7a") { anim2_7a_tl.play(); }
+/*
+		gsapAnim2_7a.material.opacity = 0.2;
+	//	gsapAnim2_7a.position.y = 50;
+		gsap.to(gsapAnim2_7a.material, {
+		            delay: 3,
+		            opacity: 0.2,
+		            duration: 3
+		            });
+		gsap.to(gsapAnim2_7a.position, {
+		            delay: 3,
+		            y: 50,
+		            duration: 3
+		            });
+		gsap.to(gsapAnim2_7a.rotation, {
+		            delay: 1,
+		            z: -7,
+		            duration: 15
+		            });
+*/
+//		console.log("gsapAnim2_7a.rotation.z is now " + gsapAnim2_7a.rotation.z);
+//	}
+	} else if (tokn == "stop") {
+//		gsapAnim2_7a.rotation.z = 0;
+//		anim2_7a_tl.progress(1.0);	// this won't include repeats
+//		anim2_7a_tl = null;
+		anim2_7a_tl.totalProgress(1.0);
+		anim2_7a_tl.pause();
+		anim2_7a_tl.kill();	//-- even this didn't work!!
+		spinRate = 0;
+		anim2_7a_tl.to(gsapAnim2_7a.rotation, {
+		            z: spinRate,
+		            duration: 1700
+		            });
+//		gsapAnim2_7a.rotation.z = 0;
+//		NOTE: Perhaps I need to use tl.remove to eliminate line that set the rotation
+//		anim2_7a_tl.remove();	-- this gives error that "e is unspecified" in gsap.min.js
+//		gsapAnim2_7a.material.opacity = 1;
+	} else { }
+	console.log("gsapAnim2_7a.rotation.z is " + gsapAnim2_7a.rotation.z);
+}

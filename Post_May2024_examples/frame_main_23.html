@@ -1,0 +1,2831 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<title>three.js css2d - label</title>
+<link type="text/css" rel="stylesheet" href="main.css">
+<link href="favicon.ico" TYPE="Shortcut Icon">
+<style>
+    @font-face {
+	font-family: localSwis721_BlkCn_BT;
+	src: url('./org_extras/fonts/ttf/SWZ721KC.TTF');
+    }
+    @font-face {
+	font-family: localFranklinGothic;
+	src: url('./org_extras/fonts/ttf/framd.ttf');
+    }
+    @font-face {
+	font-family: localArialReg;
+	src: url('./org_extras/fonts/ttf/arial.ttf');
+    }
+    @font-face {
+	font-family: localArialItalic;
+	src: url('./org_extras/fonts/ttf/ariali.ttf');
+    }
+    @font-face {
+	font-family: localNewsGothic;
+	src: url('./org_extras/fonts/ttf/NEWSGOTC.TTF');
+    }
+    @font-face {
+	font-family: localSchneider;
+	src: url('./org_extras/fonts/ttf/SCHNDLK.TTF');
+    }
+#dg.ac {
+	z-index: 9;		/* // this controls gui */
+	}
+   div { color: #FFFFFF; 
+	font-size: 16px;
+	font-family: Arial, localArialReg, sans-serif;  
+	text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black; 
+	letter-spacing: 1px;
+	text-align: left; }
+   .label {
+	font-size:100%;
+	color: #FFF;
+	font-family: Arial, localArialReg, sans-serif;
+	padding: 2px;
+	letter-spacing: 1px;
+	text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
+	z-index:0;
+   }
+   .branch {
+	font-size: 180%; font-family: Swis721 BlkCn BT, localSwis721_BlkCn_BT; font-variant: small-caps; z-index:0;
+   }
+   .chapter {
+	font-size:180%; font-family: Franklin Gothic, localFranklinGothic, Arial; text-decoration: underline; text-decoration-color: #fff; z-index:0;	   }
+   .section {
+	font-size:133%; font-family: Arial, localArialItalic, localArialReg, Arial; font-style: italic; z-index:0;
+   }
+   .polemic {
+	font-size:133%; font-family: Arial, localArialItalic, localArialReg, Arial; font-style: italic; z-index:0;
+   }
+//   .categ {
+//	font-family: News Gothic Condensed BT, localNewsGothic, Arial, localArialReg; font-size:100%; z-index:0;
+//   }
+   .sectNo {		/* // @@ CHANGE: give black block background */
+	font-size:133%; border: 2px solid; padding-left: 5px; padding-right: 5px; z-index:0;
+   }
+   #sceneSubstitute { 
+	position: absolute; width: 1200px; height: 725px;
+	top: 100px; left: 225px; padding: 0px;
+	background-size: 1200px 725px;
+	z-index:9;
+   }
+    canvas {
+        width: 100%;  /* let our container decide our size */
+        height: 100%;
+        display: block;
+    }
+    #container {
+      position: relative;  /* makes this the origin of its children */
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: 0;
+      }
+</style>
+<script language="javascript" SRC="itemcode.txt"></script>
+<script language="javascript" SRC="isolate_area.txt"></script>
+</head>
+<body>
+<div id="info"></div>
+<div id="sceneSubstitute" style='background-image: none;'></div>
+<div id="container">
+<canvas id="canvas" ></canvas>
+</div>
+
+<script src="./gsap-public/minified/gsap.min.js"></script>
+<script src="geoLabels.js"></script>
+<script type="module">
+import * as THREE from '../build/three.module.js';
+
+import { OrbitControls } from './jsm/controls/OrbitControls.js';
+// import { MapControls } from './jsm/controls/OrbitControls.js';		// 9-20
+import { CSS2DRenderer, CSS2DObject } from './jsm/renderers/CSS2DRenderer.js';
+import { GUI } from './jsm/libs/dat.gui.module.js';
+import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+//import { FlyControls } from './jsm/controls/FlyControls.js';
+//import { Fire } from './jsm/objects/Fire.js';
+//import gsap from "gsap";
+//import com.greensock.*;
+//import { gsap } from "gsap";
+// The next four lines were added Aug 26, 2023 as possible aid to line-drawing; if not needed, delete these:
+import { GeometryUtils } from './jsm/utils/GeometryUtils.js';
+import { Line2 } from './jsm/lines/Line2.js';
+import { LineMaterial } from './jsm/lines/LineMaterial.js';
+import { LineGeometry } from './jsm/lines/LineGeometry.js';
+// The next line added Sep 17 2023 for possible use in displaying an SVG as fog; if not used, delete
+//import { SVGLoader } from './jsm/loaders/SVGLoader.js';
+
+function animateLine2 (line2, time) {
+	// this assumes line2.computeLineDistances() was already called
+	console.log("inside animateLine2: " + line2 + " ||| " + time);
+	gsap.to(line2.material.uniforms.progress, time, { value:
+		line2.material.uniforms.dashScale.value *
+		line2.geometry.attributes.instanceDistanceEnd.array[
+			line2.geometry.attributes.instanceDistanceEnd.array.length - 1
+		]
+	});
+}
+
+var scene, renderer, camera, labelRenderer, topCamera;
+// removed var fireFogRenderer, fireFog 
+var controls;
+var backgroundUrl = "./externals/OPAR_branches_background_for_minimap.png";
+var backgroundUrl2 = "./externals/Substitute_for_OPAR_map.png";
+var bgTexture;
+var bgTexture2;
+//var controlsFly;
+var container;
+var cheight, cwidth;
+var mapWidth = 0, mapHeight = 0;
+// coefficient to prevent distortion of the yellowBox width
+var addcoef = 0.07;		// was 0.07
+var dur = 2;
+let labelsNormal = 1;
+var gsapAnimToggle = 0;		// This variable may be unnecessary; see if it should be removed
+
+var anim2_7a_tl;
+
+// parameter for calculating the height of the yellowBox in relation to the distance from the camera to the gridXY
+var scaleBoxParam = 19;
+
+var yellBox; // yellow box on topCamera
+var yellBoxBorderWidth;		// DELETE THIS IF NOT USED
+// next is for smoke, fog effects
+//let smokePuff01Particles = [ ] ;
+let smokePuff04Particles = [ ] ;
+let smokePlane04Particles = [ ] ;
+let smokeKnot04Particles = [ ];
+let fogPuff05Particles = [ ] ;
+//let fogKnot05Particles = [ ] ;
+let fogTorus05Particles = [ ] ;
+
+var gsapAnimTextureLoader2_7a = new THREE.TextureLoader();
+var gsapAnimTexture2_7a = gsapAnimTextureLoader2_7a.load( './externals/gsap_anim/2.7_Stream_wheel__middle__revised.png' );
+var gsapAnimMaterial2_7a = new THREE.MeshBasicMaterial({ map: gsapAnimTexture2_7a, transparent: true, side: THREE.FrontSide });
+var gsapAnimGeometry2_7a = new THREE.PlaneGeometry( 8, 8, 1 );
+var gsapAnim2_7a = new THREE.Mesh( gsapAnimGeometry2_7a, gsapAnimMaterial2_7a );
+gsapAnim2_7a.position.set (40, 53, 60);
+
+var gsapAnimTextureLoader2_7b = new THREE.TextureLoader();
+var gsapAnimTexture2_7b = gsapAnimTextureLoader2_7b.load( './externals/gsap_anim/2.7_Stream_wheel__non-middle.png' );
+var gsapAnimMaterial2_7b = new THREE.MeshBasicMaterial({ map: gsapAnimTexture2_7b, transparent: true, side: THREE.FrontSide });
+var gsapAnimGeometry2_7b = new THREE.PlaneGeometry( 8, 8, 1 );
+var gsapAnim2_7b = new THREE.Mesh( gsapAnimGeometry2_7b, gsapAnimMaterial2_7b );
+gsapAnim2_7b.position.set (40, 53, 60);
+
+window.addEventListener('DOMContentLoaded', (event) => {
+	init(); 
+});
+
+function init() {
+
+	container = document.getElementById( 'canvas' );
+//	container.addEventListener('contextmenu', event => event.preventDefault());
+	camera = new THREE.PerspectiveCamera (3, container.clientWidth / container.clientHeight, 0.01, 8000);
+	camera.position.set(15.75,35.01,1440);	// 380 will display as tightly as possible with left and right sides inside frame
+	camera.setViewOffset (container.clientWidth, container.clientHeight, 122, 0, container.clientWidth, container.clientHeight);
+//	camera.position.set(15.75,35.01,1440);
+//	camera.position.set.z.toFixed(1000);
+
+	scene = new THREE.Scene();
+
+	const light = new THREE.DirectionalLight(0xFFFFFF, 1);
+	light.castShadow = true;
+	light.position.set(15.75, 35, 1440);
+	light.target.position.set(15.75, 35, 45);
+ 
+	light.shadow.bias = -0.004;
+	light.shadow.mapSize.width = 2048;
+	light.shadow.mapSize.height = 2048;
+ 
+	scene.add(light);
+	scene.add(light.target);
+
+// ABOVE CODE IS THE USUAL THREE.JS CODE IN EVERY SCRIPT TO ADD SCENE, LIGHTS
+	
+	//let topaspect = mapWidth/mapHeight;
+// topCamera for minimap 
+	topCamera = new THREE.OrthographicCamera (
+		-mapWidth/16.4, 
+		mapWidth/16.4, 
+		mapHeight/16.4, 
+		-mapHeight/16.4, 
+		0.01, 
+		1000);
+	topCamera.position.set (15.75, 35, 9999);
+
+	// create new layer for yellow box to be invisible to the main camera
+	topCamera.layers.enable( 1 ); // camera now sees default layer 0 and layer 1 
+	topCamera.layers.disable( 0 ); // disable all objects from layers 0 for topCamera
+	// create yellow box
+	yellowBox();
+
+	//load background image for minimap
+	var loader = new THREE.TextureLoader();
+	loader.setCrossOrigin("");
+
+	bgTexture = loader.load(backgroundUrl);
+	bgTexture2 = loader.load(backgroundUrl2);
+
+// CODE BELOW MERELY ADDS THE COLOR DOTS AT THE FOUR CORNERS OF THE "BUILDING" BACKGROUND IMAGE;
+// THESE COLOR DOTS ARE MERELY TO HELP WITH NAVIGATION WHILE ADDING MORE CODE, AND WILL BE REMOVED EVENTUALLY
+
+	const geometry1 = new THREE.SphereGeometry( .5, 3.2, 3.2 );
+	const material1 = new THREE.MeshBasicMaterial( {color: 0xffff00} );
+	const sphere1 = new THREE.Mesh( geometry1, material1 );
+	sphere1.position.set (0, 70.3, 50);
+	scene.add( sphere1 );
+
+	const geometry2 = new THREE.SphereGeometry( .5, 3.2, 3.2 );
+	const material2 = new THREE.MeshBasicMaterial( {color: 0x0000ff} );
+	const sphere2 = new THREE.Mesh( geometry2, material2 );
+	sphere2.position.set (31.5, 70.3, 50);
+	scene.add( sphere2 );
+
+	const geometry3 = new THREE.SphereGeometry( .5, 3.2, 3.2 );
+	const material3 = new THREE.MeshBasicMaterial( {color: 0x00ff00} );
+	const sphere3 = new THREE.Mesh( geometry3, material3 );
+	sphere3.position.set (31.5, 0, 50);
+	scene.add( sphere3 );
+
+	const geometry4 = new THREE.SphereGeometry( .5, 3.2, 3.2 );
+	const material4 = new THREE.MeshBasicMaterial( {color: 0xff0000} );
+	const sphere4 = new THREE.Mesh( geometry4, material4 );
+	sphere4.position.set (0, 0, 50);
+	scene.add( sphere4 );
+
+// ABOVE IS THE END OF THE CODE TO ADD "COLOR DOTS"
+
+
+// NEXT CODE ADDS THE BACKGROUND IMAGE WITH THE SHAPE OF A BUILDING, FOLLOWED BY CODE TO ADD THE
+// BROWN AND BLUE PATCHES OF COLOR FOR THE BACKGROUND
+
+	const backdropTextureLoader3 = new THREE.TextureLoader();
+	const backdropTexture3 = backdropTextureLoader3.load( './externals/OPAR_Test_background_31500x70300_reshaded_2.png' );
+	const backdropMaterial3 = new THREE.MeshBasicMaterial({ map: backdropTexture3 });
+	// perhaps later change "Basic" to "Standard"?
+	const backdropGeometry3 = new THREE.PlaneGeometry( 31.5, 70.3, 1 );
+	const backdrop3 = new THREE.Mesh( backdropGeometry3, backdropMaterial3 );
+	backdrop3.position.set (15.75, 35.15, 35);
+	scene.add( backdrop3 );
+
+	const backdropBoxSky = new THREE.PlaneGeometry( 800, 200, 1 );
+	const backdropMaterialSky = new THREE.MeshBasicMaterial( {color: 0x87ceeb} );
+	const backdropSky = new THREE.Mesh( backdropBoxSky, backdropMaterialSky );
+	backdropSky.position.set (15.75, 138.7, 33.0);
+	scene.add( backdropSky );
+
+	const backdropMaterialSoil = new THREE.MeshBasicMaterial( {color: 0x9b7653} );
+	const backdropGeometrySoil = new THREE.PlaneGeometry( 800, 240, 1 );
+	const backdropSoil = new THREE.Mesh( backdropGeometrySoil, backdropMaterialSoil );
+	backdropSoil.position.set (15.75, -81.3, 33.0);
+	scene.add( backdropSoil );
+
+	const backdropMaterialSideSkyLeft = new THREE.MeshBasicMaterial( {color: 0x87ceeb} );
+	const backdropGeometrySideSkyLeft = new THREE.PlaneGeometry( 600, 200, 1 );
+	const backdropSideSkyLeft = new THREE.Mesh( backdropGeometrySideSkyLeft, backdropMaterialSideSkyLeft );
+	backdropSideSkyLeft.position.set (-415.75, 138.7, 34.0);
+	backdropSideSkyLeft.rotation.set(0,45*(Math.PI/180),0)
+	scene.add( backdropSideSkyLeft );
+
+	const backdropMaterialSideSkyRight = new THREE.MeshBasicMaterial( {color: 0x87ceeb} );
+	const backdropGeometrySideSkyRight = new THREE.PlaneGeometry( 600, 200, 1 );
+	const backdropSideSkyRight = new THREE.Mesh( backdropGeometrySideSkyRight, backdropMaterialSideSkyRight );
+	backdropSideSkyRight.position.set (415.75, 138.7, 34.0);
+	backdropSideSkyRight.rotation.set(0,-45*(Math.PI/180),0)
+	scene.add( backdropSideSkyRight );
+
+	const backdropMaterialSideSoilLeft = new THREE.MeshBasicMaterial( {color: 0x9b7653} );
+	const backdropGeometrySideSoilLeft = new THREE.PlaneGeometry( 600, 240, 1 );
+	const backdropSideSoilLeft = new THREE.Mesh( backdropGeometrySideSoilLeft, backdropMaterialSideSoilLeft );
+	backdropSideSoilLeft.position.set (-415.75, -81.3, 34.0);
+	backdropSideSoilLeft.rotation.set(0,45*(Math.PI/180),0)
+	scene.add( backdropSideSoilLeft );
+
+	const backdropMaterialSideSoilRight = new THREE.MeshBasicMaterial( {color: 0x9b7653} );
+	const backdropGeometrySideSoilRight = new THREE.PlaneGeometry( 600, 240, 1 );
+	const backdropSideSoilRight = new THREE.Mesh( backdropGeometrySideSoilRight, backdropMaterialSideSoilRight );
+	backdropSideSoilRight.position.set (415.75, -81.3, 34.0);
+	backdropSideSoilRight.rotation.set(0,-45*(Math.PI/180),0)
+	scene.add( backdropSideSoilRight );
+
+// ABOVE IS END OF THE CODE TO ADD THE BACKGROUND AND COLOR-PATCH BACKGROUNDS
+
+// This next block displays, but I cannot manipulate the content later
+// this ends the block of variables that I cannot manipulate later
+
+
+// THIS BLOCK IS FOR ADDING AN ANIMATED ROUTE LINE - IT IS EXPERIMENT NOW (Aug 26 2023)
+
+window.lineMaker =
+function lineMaker(xys, color, linewidth, duration, style, dashScale, dashSize, gapSize, wait ) {
+	console.log("inside LineMaker, xys is: " + xys);
+	if(typeof color === 'string' && color.startsWith('0x')) {
+		// THREE.Color is not smart enough to do this
+		color = parseInt(color, 16);
+	}
+	const mapLineMat = new LineMaterial( { color, linewidth } );
+	if(style === 'd') {
+		mapLineMat.defines.USE_DASH = true;
+		mapLineMat.dashScale = dashScale;
+		mapLineMat.dashSize = dashSize;
+		mapLineMat.gapSize = gapSize;
+	}
+	const mapLinePoints = [];
+	xys.forEach(function(coordinate, index) {
+		mapLinePoints.push(coordinate); if(index % 2 === 1) mapLinePoints.push(55);
+	});
+	const mapLineGeometry = new LineGeometry().setPositions( mapLinePoints );
+	const mapLine = new Line2( mapLineGeometry, mapLineMat );
+	mapLine.computeLineDistances();
+	scene.add( mapLine );
+
+    const pixelRatio = window.devicePixelRatio;
+    const width = container.clientWidth * pixelRatio | 0;
+    const height = container.clientHeight * pixelRatio | 0;
+	mapLineMat.resolution.set(width, height);
+
+
+	lineMaker.queue ||= [];
+	lineMaker.queue.push( mapLine );
+
+	if(wait === 'N') {
+		while(lineMaker.queue.length > 0) {
+			animateLine2(lineMaker.queue.shift(), duration);
+		}
+	}
+}
+
+// NEXT BLOCK OF CODE ADDS THE ORANGE-YELLOW-GOLD "FLOOR"/"CEILING" BOX-LIKE 3D BLOCKS
+
+	for (let i = 0; i < planks.length; i++) {
+		let newName = "plank" + planks[i][0];
+		let widthX = planks[i][1];
+		let heightY = planks[i][2];
+		let depthZ = planks[i][3];
+		let plankGeometryXX = new THREE.BoxGeometry( widthX, heightY, depthZ );
+		let passedColor2 = planks[i][7];
+		let stringhex = passedColor2.toString(16)
+		let passedColor1 = new THREE.Color( passedColor2 );
+		let plankMaterialXX = new THREE.MeshBasicMaterial( {color: passedColor1} );
+		const plankXX = new THREE.Mesh( plankGeometryXX, plankMaterialXX );
+		plankXX.position.x = planks[i][4];
+		plankXX.position.y = planks[i][5];
+		plankXX.position.z = planks[i][6];
+		plankXX.name = newName;
+		scene.add( plankXX );
+	}
+
+// ABOVE IS THE CODE FOR ADDING THE ORANGE-YELLOW-GOLD 3D BLOCKS THAT APPEAR IN FRONT OF THE "BUILDING"-SHAPED BACKGROUND IMAGE
+
+// NEXT BATCH OF CODE IS TO RETRIEVE THE TEXT OF THE LABELS AND PUT THEM IN POSITION
+
+	for (let i = 0; i < objtSectNums.length; i++) {
+		let newSecNoLabel = "sectNoLabels" + objtSectNums[i][0];
+		var secNoDiv = document.createElement( 'span' );
+		secNoDiv.className = 'sectNo';
+		secNoDiv.textContent = objtSectNums[i][1];
+		secNoDiv.style.marginTop = '-1em';
+		var secNoLbl = new CSS2DObject( secNoDiv );
+		secNoLbl.position.x = objtSectNums[i][2];
+		secNoLbl.position.y = objtSectNums[i][3];
+		secNoLbl.position.z = 0;
+		secNoLbl.name = newSecNoLabel;
+		scene.add( secNoLbl );
+	}
+
+	for (let i = 0; i < objtSections.length; i++) {
+		let newSecLabel = "sectionsLabels" + objtSections[i][0];
+		var secDiv = document.createElement( 'div' );
+		secDiv.className = 'section';
+		secDiv.textContent = objtSections[i][1];
+		secDiv.style.marginTop = '-1em';
+		secDiv.style.zIndex = 4;
+		var secLbl = new CSS2DObject( secDiv );
+		secLbl.position.x = objtSections[i][2];
+		secLbl.position.y = objtSections[i][3];
+		secLbl.position.z = 0;
+		secLbl.name = newSecLabel;
+		scene.add( secLbl );
+	}
+
+	for (let i = 0; i < objtPolemicSections.length; i++) {
+		let newPoleLabel = "polemicsLabels" + objtPolemicSections[i][0];
+		var poleDiv = document.createElement( 'div' );
+		poleDiv.className = 'polemic';
+		poleDiv.textContent = objtPolemicSections[i][1];
+		poleDiv.style.marginTop = '-1em';
+		poleDiv.style.zIndex = 4;
+		var poleLbl = new CSS2DObject( poleDiv );
+		poleLbl.position.x = objtPolemicSections[i][2];
+		poleLbl.position.y = objtPolemicSections[i][3];
+		poleLbl.position.z = 0;
+		poleLbl.name = newPoleLabel;
+		scene.add( poleLbl );
+	}
+
+	for (let i = 0; i < objtChapters.length; i++) {
+		let newChLabel = "chaptersLabels" + objtChapters[i][0];
+		var chapDiv = document.createElement( 'div' );
+		chapDiv.className = 'chapter';
+		chapDiv.textContent = objtChapters[i][1];
+		chapDiv.style.marginTop = '-1em';
+		chapDiv.style.zIndex = 4;
+		var chapLbl = new CSS2DObject( chapDiv );
+		chapLbl.position.x = objtChapters[i][2];
+		chapLbl.position.y = objtChapters[i][3];
+		chapLbl.position.z = 0;
+		chapLbl.name = newChLabel;
+		scene.add( chapLbl );
+	}
+
+	for (let i = 0; i < objBranches.length; i++) {
+		let newLabel = "branchLabels" + objBranches[i][0];
+		var branDiv = document.createElement( 'div' );
+		branDiv.className = 'branch';
+		branDiv.textContent = objBranches[i][1];
+		branDiv.style.marginTop = '-1em';
+		branDiv.style.zIndex = 4;
+		var branLbl = new CSS2DObject( branDiv );
+		branLbl.position.x = objBranches[i][2];
+		branLbl.position.y = objBranches[i][3];
+		branLbl.position.z = 0;
+		branLbl.name = newLabel;
+// Specifying scene.add rather than clearBox.add made no difference
+		scene.add( branLbl );
+	}
+
+// ABOVE IS THE CODE FOR RETRIEVING AND POSITIONING THE LABELS
+
+
+// NEXT CODE ARE FOR THE USUAL CALLS FOR RENDERERS AND CONTROLS, THEN FOR HELPER GRIDS
+// HELPER GRIDS ARE JUST FOR AID WHILE CODING, AND WILL EVENTUALLY BE REMOVED
+
+	renderer = new THREE.WebGLRenderer({antialias: true, canvas: container});
+	renderer.setPixelRatio( window.devicePixelRatio );
+	renderer.setSize( top.innerWidth, top.innerHeight );
+	//document.body.appendChild( renderer.domElement );
+
+	labelRenderer = new CSS2DRenderer();
+	labelRenderer.setSize( top.innerWidth, top.innerHeight );
+	labelRenderer.domElement.style.position = 'absolute';
+	labelRenderer.domElement.style.top = '0px';
+	document.body.appendChild( labelRenderer.domElement );
+	//container.appendChild( labelRenderer.domElement );
+
+	controls = new OrbitControls( camera, labelRenderer.domElement );
+//	controls = new MapControls( camera, labelRenderer.domElement );	// 9-20
+	//controls = new OrbitControls( camera, container );
+	controls.screenSpacePanning = true;
+//	controls.screenSpacePanning = false;	// 9-20
+//	controls.enableRotate = true;		// this gave same left-drag results both when false and true
+//	controls.maxPolarAngle = 0;		// this had no effect
+//	controls.maxAzimuthAngle = - Math.PI;		// this had no effect
+	controls.target.set(15.75, 35.01, 0);
+
+	controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+	controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+
+// next two had no discernible effect
+//	controls.touches.ONE = THREE.TOUCH.PAN;
+//	controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+
+//	controlsFly = new FlyControls( camera, labelRenderer.domElement );
+//	controlsFly.movementSpeed = 1000;
+//	controlsFly.domElement = renderer.domElement;
+//	controlsFly.rollSpeed = Math.PI / 24;
+//	controlsFly.autoForward = false;
+//	controlsFly.dragToLook = false;
+
+	// NEXT CODE SEES TO IT THAT WHEN X/Y/Z CHANGES, THE LABELS ARE UPDATED 
+
+	controls.addEventListener( 'change', e => {
+		updateBox();
+		labelRefresher();
+		categPixRefresher();
+		render();
+	});
+
+//	controls.addEventListener('contextmenu', event => event.preventDefault());
+
+	// add event listener for window resize event. It could be deleted if it's not neccesary
+	window.addEventListener ('resize', onWindowResize, false);
+	onWindowResize();
+	render();
+	animate();
+	labelRefresher();
+	categPixRefresher();
+
+	// NEXT IS A GUI WHICH IS IN PLACE TO AID WHILE CODING; EVENTUALLY, THIS WILL PROBABLY BE REMOVED, AND ONLY MOUSE WILL DO NAVIGATION
+
+	var gui = new GUI();
+
+	gui.add(camera.position, "z", 0, 8100);
+	gui.add(camera.position, "z", 0, 1500);
+}
+
+// ABOVE ARE THE USUAL CALLS IN CODE FOR RENDERERS, CONTROLS, HELPER GRIDS
+
+//	function changeAB() { scene.remove ( coverFire07_A ); scene.add ( coverFire07_H ); alert(); } 
+
+// function for window resize event handler
+function resizeRendererToDisplaySize(renderer) {
+
+    const pixelRatio = window.devicePixelRatio;
+    const width = container.clientWidth * pixelRatio | 0;
+    const height = container.clientHeight * pixelRatio | 0;
+
+	scene.traverse (function (object) {
+		if (object.material && object.material.resolution) {
+			object.material.resolution.set(width, height);
+		}
+	});
+
+    const needResize = container.width !== width || container.height !== height;
+    if (needResize) {
+        renderer.setSize(width, height, false);
+        labelRenderer.setSize( width, height );
+    }
+    return needResize;
+}
+
+// window resize event handler
+function onWindowResize()
+{
+    if (resizeRendererToDisplaySize(renderer)) {
+    	camera.aspect = container.clientWidth / container.clientHeight;
+    	camera.updateProjectionMatrix();
+    	render();
+    }
+}
+
+// next content is relevant to the yellow box and orange border on the minimap frame
+var yellBord;
+
+// create and draw yellow box with camera view height and width
+function yellowBox() {
+
+	// set width and height to 1, 1. To then scale them to the dimensions of the camera view
+	let planeGeometry = new THREE.PlaneGeometry(1, 1, 2, 2);
+
+	// colors of scaling box and its border can be changed here
+	let colors = {
+		color: "yellow",
+		borderColor: "orange"
+	}
+
+	let m = new THREE.MeshBasicMaterial({
+	  		color: colors.color,
+    		side: THREE.DoubleSide,
+    		transparent: true,
+    		opacity: 0.7,	// opacity of scaling box
+		  	onBeforeCompile: shader => {
+			  	shader.uniforms.size = m.userData.uniforms.size;
+			    shader.uniforms.borderWidth = (m.userData.uniforms.borderWidth);
+			    shader.uniforms.borderColor = m.userData.uniforms.borderColor;
+			    shader.fragmentShader = `
+			    	uniform vec2 size;
+			      uniform float borderWidth;
+			      uniform vec3 borderColor;
+			      ${shader.fragmentShader}
+			    `.replace(
+			    	`#include <color_fragment>`,
+			      `
+			      	#include <color_fragment>
+			        vec3 col = diffuseColor.rgb;
+			        vec2 s = (size * 0.5) - borderWidth;
+			        
+			        vec2 ruv = abs((vUv - 0.5) * size);
+			        vec2 fe = fwidth(ruv);
+			        float e = min(fe.x, fe.y) * 0.5;
+			        float border = smoothstep(s.x + e, s.x - e, ruv.x) * smoothstep(s.y + e, s.y - e, ruv.y);
+			   			diffuseColor.rgb = mix(borderColor, col, clamp(border, 0., 1.));   
+			      `
+		    );
+	  }
+	});
+	m.defines = {"USE_UV":""};
+	m.userData = {
+		uniforms: {
+	  	size: {value: new THREE.Vector2(1, 1)},
+	    borderWidth: {value: 0.6},
+	    borderColor: {value: new THREE.Color(colors.borderColor)}
+	  }
+	}
+
+	yellBox = new THREE.Mesh( planeGeometry, m);
+    yellBox.layers.set( 1 );	 // set yellBox and yellBord in layer 1
+	scene.add( yellBox );
+}
+
+// update yellow box with near-camera-plane dimensions
+function updateBox() {
+	// add coefficient "addcoef" to prevent distortion of the yellowBox width
+	const cparam = (top.innerWidth + addcoef * top.innerWidth) / top.innerHeight; 
+	const widthReduce =  (top.innerWidth - 286) / top.innerWidth;
+//	console.log("widthReduce: " + widthReduce);
+//	console.log("cparam: " + cparam);
+//	console.log("top.innerWidth: " + top.innerWidth);
+//	console.log("top.innerHeight: " + top.innerHeight);
+	const scaleY = (camera.position.z - 50) / scaleBoxParam;	// 50 - it is gridXY.position.z
+	const scaleX = scaleY * cparam * widthReduce;
+
+	yellBox.scale.set( scaleX, scaleY, 1);	
+	yellBox.material.userData.uniforms.size.value.set(scaleX, scaleY);
+
+	// place yellowBox under topCamera
+	var cameraPosX = camera.position.x + (10);
+	yellBox.position.set(cameraPosX, camera.position.y, topCamera.position.z - 1);
+
+	if (yellBox.hasOwnProperty("scale")) {
+	  var scaleArray = yellBox.scale;
+	}
+	if (yellBox.hasOwnProperty("position")) {
+	  var positionArray = yellBox.position;
+	}
+	if (yellBox.hasOwnProperty("border-width")) {
+	  var ybBorderWidth = yellBox.border-width;
+	}
+	passWR(widthReduce);
+	passSX(scaleArray.x);
+	passSY(scaleArray.y);
+	passSZ(scaleArray.z);
+	passPX(positionArray.x - 10);
+	passPY(positionArray.y);
+	passPZ(positionArray.z);
+	freshMinimap();
+}
+
+function createViewport(left, bottom, width, height, cam) {
+	//left = 1; bottom = 1; width = SCREEN_W-2; height = SCREEN_H-2; //0.5* //0.5*SCREEN_W+
+	renderer.setViewport (left,bottom,width,height);		// was left,bottom,width,height
+	renderer.setScissor(left,bottom,width,height);		// was left,bottom,width,height
+	renderer.setScissorTest (true);  // clip out "viewport"
+	cam.aspect = width/height;
+	cam.updateProjectionMatrix();
+	renderer.render (scene,cam);
+}
+
+function render()
+{
+	var SCREEN_W, SCREEN_H;
+
+	SCREEN_W = top.innerWidth;
+	SCREEN_H = top.innerHeight;
+
+	labelRenderer.render( scene, camera );
+
+	scene.background = null;	
+	createViewport(1, 1, SCREEN_W, SCREEN_H, camera);
+
+	scene.background = bgTexture;	
+	createViewport(10, SCREEN_H-mapHeight-10, mapWidth, mapHeight, topCamera);	
+
+	smokePuff04Particles.forEach(p => {
+		p.rotation.x -=0.00001;
+		p.rotation.y -=0.00001;
+		p.rotation.z -=0.000005;
+		p.position.x -= ((Math.random()*(0.096 - 0.064)) + 0.064)		// was 0.08;
+		p.position.y += 0.02;
+		if ( p.position.x <= 3.5 ) { p.position.x += 24.5; }
+		if (( p.position.y >= 24.9 )) { p.position.y -= 3.8; }	// &&( p <= 150 )
+	});
+	smokePlane04Particles.forEach(p => {
+		p.rotation.z -=0.0004;
+		p.position.x -= 0.009;
+		p.position.y += 0.006;
+		if ( p.position.x <= 3.5 ) { p.position.x += 24.5; }
+		if (( p.position.y >= 24.9 )) { p.position.y -= 3.8; }
+	});
+	smokeKnot04Particles.forEach(p => {
+		p.rotation.x -=0.00001;
+		p.rotation.y -=0.00001;
+		p.rotation.z -=0.000005;
+		p.position.x -= ((Math.random()*(0.096 - 0.064)) + 0.064)		// was 0.08;
+		p.position.y += 0.02;
+		if ( p.position.x <= 3.5 ) { p.position.x += 24.5; }
+		if (( p.position.y >= 24.9 )) { p.position.y -= 3.8; }	// &&( p <= 150 )
+	});
+	fogPuff05Particles.forEach(p => {
+		p.rotation.z -=0.0003;	// was 0.000003
+		p.position.x -= 0.01;		// was 0.01
+		p.position.y += 0.008;		// was 0.02
+		if ( p.position.x <= 3 ) { p.position.x += 25.5; }
+		if (( p.position.y >= 32.4 )) { p.position.y -= 5.9; }
+	});
+	fogTorus05Particles.forEach(p => {
+		p.rotation.z -=0.0003;	// was 0.000003
+		p.position.x -= 0.01;		// was 0.01
+		p.position.y += 0.008;		// was 0.02
+		if ( p.position.x <= 3 ) { p.position.x += 25.5; }
+		if (( p.position.y >= 32.4 )) { p.position.y -= 5.9; }
+	});
+}
+
+// NEXT IS A TYPICAL "ANIMATE()" FUNCTION, CALLING RENDERERS SO THAT RENDERERS CAN BE UPDATED WHEN CONTROLS CHANGE X/Y/Z POSITIONS
+
+function animate() {
+	controls.update();
+//	controlsFly.movementSpeed = 1000;
+//	controlsFly.update();
+	requestAnimationFrame( animate );
+	render(); 
+}
+
+function labelRefresher() {
+	let zPosW = camera.position.z;
+	let zPos = zPosW.toFixed(2);
+	reviseZPos(zPos);
+	const branchDiv = document.querySelectorAll('.branch');
+	const chapterDiv = document.querySelectorAll('.chapter');
+	const sectionDiv = document.querySelectorAll('.section');
+	const sectNoDiv = document.querySelectorAll('.sectNo');
+	const polemicDiv = document.querySelectorAll('.polemic');
+//	const categorDiv = document.querySelectorAll('.categ');
+
+// THE REST OF THE CODE IN THIS FILE CHANGES THE FONT SIZE AND VISIBILITY OF THE LABELS IN RESPONSE TO CHANGE IN "Z" POSITION
+// (YES, IT IS A LOT OF CODE FOR ONE PURPOSE, BUT THERE ARE A LOT OF DIFFERENT Z POSITIONS TO ACCOUNT FOR.)
+
+	if (labelsNormal == 0) {
+		sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.opacity = 0; });
+		sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.opacity = 0; });
+		chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.opacity = 0; });
+		branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.opacity = 0; });
+		polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.opacity = 0; });
+	}
+
+	if (labelsNormal == 1) {
+		polemicDiv.forEach(thispoleDiv => { thispoleDiv.style.opacity = 0; });
+		if ((zPos > 1940)||(zPos < 145)) {
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.opacity = 0; });
+		}
+		else if ((zPos <= 1940)&&(zPos >= 175)) {
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.opacity = 1; });
+		} else { }
+		if ((zPos > 533)||(zPos < 145)) {
+			sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.opacity = 0; });
+			sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.opacity = 0; });
+		}
+		else if ((zPos <= 533)&&(zPos >= 145)) {
+			sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.opacity = 1; });
+			sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.opacity = 1; });
+		} else { }
+		if (zPos > 145) { branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.opacity = 1; }); }
+		else if (zPos <= 145) { branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.opacity = 0; }); }
+		else { }
+
+		if (zPos > 4800) {
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '70%'; });
+		}
+		else if ((zPos <= 4800)&&(zPos > 3000)) {
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '100%'; });
+		}
+		else if ((zPos <= 3000)&&(zPos > 1940)) {
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '156%'; });
+		}
+		else if ((zPos <= 1940)&&(zPos > 1545)) {
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '188%'; });
+		}
+		else if ((zPos <= 1545)&&(zPos > 1475)) {
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '30%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '188%'; });
+		}
+		else if ((zPos <= 1475)&&(zPos > 1405)) {
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '45%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 1405)&&(zPos > 1335)) {
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '63%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 1335)&&(zPos > 1265)) {
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '80%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 1265)&&(zPos > 1195)) {
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '100%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 1195)&&(zPos > 1125)) {
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '125%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 1125)&&(zPos > 1072)) {
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '153%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 1072)&&(zPos > 533)) {
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '180%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 533)&&(zPos > 445)) {
+			sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.fontSize = '50%'; });
+			sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.fontSize = '50%'; });
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '180%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 445)&&(zPos > 405)) {
+			sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.fontSize = '61%'; });
+			sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.fontSize = '61%'; });
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '180%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 405)&&(zPos > 365)) {
+			sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.fontSize = '75%'; });
+			sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.fontSize = '75%'; });
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '180%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 365)&&(zPos > 325)) {
+			sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.fontSize = '97%'; });
+			sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.fontSize = '97%'; });
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '180%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 325)&&(zPos > 285)) {
+			sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.fontSize = '120%'; });
+			sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.fontSize = '120%'; });
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '180%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '250%'; });
+		}
+		else if ((zPos <= 285)&&(zPos > 245)) {
+			sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.fontSize = '144%'; });
+			sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.fontSize = '144%'; });
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '144%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '200%'; });
+		}
+		else if ((zPos <= 245)&&(zPos > 215)) {
+			sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.fontSize = '144%'; });
+			sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.fontSize = '144%'; });
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '144%'; });
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '155%'; });
+		}
+		else if ((zPos <= 195)&&(zPos > 175)) {
+			branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.fontSize = '125%'; });
+			sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.fontSize = '144%'; });
+			sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.fontSize = '144%'; });
+			chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.fontSize = '144%'; });
+		}
+		else if ((zPos <= 175)&&(zPos > 145)) {
+			sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.fontSize = '252%'; });
+			sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.fontSize = '252%'; });
+		}
+		else { }
+	}
+	if ((labelsNormal >= 2)&&(labelsNormal <= 10)) {
+		sectionDiv.forEach(thisSectionDiv => { thisSectionDiv.style.opacity = 0; });
+		sectNoDiv.forEach(thisSectNoDiv => { thisSectNoDiv.style.opacity = 0; });
+		chapterDiv.forEach(thisChapterDiv => { thisChapterDiv.style.opacity = 0; });
+		branchDiv.forEach(thisBranchDiv => { thisBranchDiv.style.opacity = 0; });
+
+		if ((zPos > 1940)||(zPos < 145)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.opacity = 0; });
+		}
+		if ((zPos <= 1940)&&(zPos >= 175)) {
+//			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.opacity = 1; });
+			if (labelsNormal == 2) {
+				polemicDiv.forEach(thisPoleDiv => { if (thisPoleDiv.textContent == "Idealism")
+					{ thisPoleDiv.style.opacity = 1; }
+					else { thisPoleDiv.style.opacity = 0; }
+				 } );
+				//	{ console.log("Idealism noted");} } );
+				//if (poleLbl.textContent == "Idealism") { console.log("Idealism noted"); }
+				//if (poleDiv.textContent == "Idealism") { console.log("Idealism noted"); }
+			}
+			if (labelsNormal == 3) {
+				polemicDiv.forEach(thisPoleDiv => { if (thisPoleDiv.textContent == "Materialism")
+					{ thisPoleDiv.style.opacity = 1; }
+					else { thisPoleDiv.style.opacity = 0; }
+				 } );
+			}
+			if (labelsNormal == 4) {
+				polemicDiv.forEach(thisPoleDiv => { if (thisPoleDiv.textContent == "Intrinsicism")
+					{ thisPoleDiv.style.opacity = 1; }
+					else { thisPoleDiv.style.opacity = 0; }
+				 } );
+			}
+			if (labelsNormal == 5) {
+				polemicDiv.forEach(thisPoleDiv => { if (thisPoleDiv.textContent == "Subjectivism")
+					{ thisPoleDiv.style.opacity = 1; }
+					else { thisPoleDiv.style.opacity = 0; }
+				 } );
+			}
+			if (labelsNormal == 6) {
+				polemicDiv.forEach(thisPoleDiv => { if (thisPoleDiv.textContent == "Mysticism")
+					{ thisPoleDiv.style.opacity = 1; }
+					else { thisPoleDiv.style.opacity = 0; }
+				 } );
+			}
+			if (labelsNormal == 7) {
+				polemicDiv.forEach(thisPoleDiv => { if (thisPoleDiv.textContent == "Skepticism")
+					{ thisPoleDiv.style.opacity = 1; }
+					else { thisPoleDiv.style.opacity = 0; }
+				 } );
+			}
+			if (labelsNormal == 8) {
+				polemicDiv.forEach(thisPoleDiv => { if (thisPoleDiv.textContent == "Force")
+					{ thisPoleDiv.style.opacity = 1; }
+					else { thisPoleDiv.style.opacity = 0; }
+				 } );
+			}
+			if (labelsNormal == 9) {
+				polemicDiv.forEach(thisPoleDiv => { if (thisPoleDiv.textContent == "Statism")
+					{ thisPoleDiv.style.opacity = 1; }
+					else { thisPoleDiv.style.opacity = 0; }
+				 } );
+			}
+			if (labelsNormal == 10) {
+				polemicDiv.forEach(thisPoleDiv => { if (thisPoleDiv.textContent == "Opposition to Capitalism")
+					{ thisPoleDiv.style.opacity = 1; }
+					else { thisPoleDiv.style.opacity = 0; }
+				 } );
+			}
+		}
+		else { }
+
+		if ((zPos <= 1545)&&(zPos > 1475)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '30%'; });
+		}
+		else if ((zPos <= 1475)&&(zPos > 1405)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '45%'; });
+		}
+		else if ((zPos <= 1405)&&(zPos > 1335)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '63%'; });
+		}
+		else if ((zPos <= 1335)&&(zPos > 1265)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '80%'; });
+		}
+		else if ((zPos <= 1265)&&(zPos > 1195)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '95%'; });
+		}
+		else if ((zPos <= 1195)&&(zPos > 1125)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '110%'; });
+		}
+		else if ((zPos <= 1125)&&(zPos > 1072)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '122%'; });
+		}
+		else if ((zPos <= 1072)&&(zPos > 533)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '135%'; });
+		}
+			// sectionDiv, sectNoDiv opacity 1 at/below 533, opacity 0 above 533
+		else if ((zPos <= 533)&&(zPos > 285)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '133%'; });
+		}
+			// categorDiv opacity 1 at/below 285, opacity 0 above 285
+		else if ((zPos <= 285)&&(zPos > 175)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '110%'; });
+		}
+	}
+
+	if (labelsNormal == 11) {		// THIS BLOCK IS ONLY FOR RETAINING CODE; DELETE WHEN NOT NEEDED
+		if ((zPos > 533)||(zPos < 145)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.opacity = 0; });
+		}
+		else if ((zPos <= 533)&&(zPos >= 145)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.opacity = 1; });
+		} else { }
+
+		if ((zPos <= 533)&&(zPos > 445)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '50%'; });
+		}
+		if ((zPos <= 445)&&(zPos > 405)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '61%'; });
+		}
+		if ((zPos <= 405)&&(zPos > 365)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '75%'; });
+		}
+		if ((zPos <= 365)&&(zPos > 325)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '97%'; });
+		}
+		if ((zPos <= 325)&&(zPos > 285)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '120%'; });
+		}
+		else if ((zPos <= 285)&&(zPos > 175)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '144%'; });
+		}
+			// branchDiv, chapterDiv opacity 0 at/below 175, opacity 1 above 175
+		else if ((zPos <= 175)&&(zPos > 145)) {
+			polemicDiv.forEach(thisPoleDiv => { thisPoleDiv.style.fontSize = '252%'; });
+		}
+	}
+	else { }
+//	categPixRefresher();
+	return;
+}
+
+function mainFramePostMessageListener(event){
+	let message = event.data;
+	if(message == 'callSentByMini'){
+//		console.log("console.log shows " + message);
+		sentByMini();
+//	}else if(message.startsWith('evalInMinimap:')){
+//		let code = message.substring('evalInMinimap:'.length);
+//		eval(code);
+	}else{
+//		console.log('Ignoring message: '+message);
+	}
+};
+
+function sentByMini() {
+	var miniPassed = document.displayForm.leftpanel.value
+	console.log("main frame miniPassed is " + miniPassed);
+//	alert("mini sent a character for further processing to main: " + miniPassed);
+	var firstChar = "";
+	firstChar = miniPassed.charAt(0);
+//	alert("firstChar: " + firstChar);
+
+// label for "d":
+		var dLabel = "label_for_1.5i";
+		var dDiv = document.createElement( 'div' );
+		dDiv.className = 'section';
+		dDiv.textContent = "Idealism";
+		dDiv.style.marginTop = '-1em';
+		dDiv.style.zIndex = 4;
+		dDiv.style.color = '#F5E056';
+		var dLbl = new CSS2DObject( dDiv );
+		dLbl.position.x = 11;
+		dLbl.position.y = 4.1;
+		dLbl.position.z = 0;
+		dLbl.name = dLabel;
+//		dLbl.visible = true;	-- BOTH TRUE AND FALSE WORK
+		dLbl.visible = false;
+		scene.add( dLbl );
+// label for "e":
+		var eLabel = "label_for_1.5m";
+		var eDiv = document.createElement( 'div' );
+		eDiv.className = 'section';
+		eDiv.textContent = "Materialism";
+		eDiv.style.marginTop = '-1em';
+		eDiv.style.zIndex = 4;
+		eDiv.style.color = '#F24F16';
+		var eLbl = new CSS2DObject( eDiv );
+		eLbl.position.x = 27;
+		eLbl.position.y = 4.1;
+		eLbl.position.z = 0;
+		eLbl.name = eLabel;
+		eLbl.visible = false;
+		scene.add( eLbl );
+// label for "i":
+		var iLabel = "label_for_5.5s";
+		var iDiv = document.createElement( 'div' );
+		iDiv.className = 'section';
+		iDiv.textContent = "Skepticism";
+		iDiv.style.marginTop = '-1em';
+		iDiv.style.zIndex = 4;
+		iDiv.style.color = '#0B45C4';
+		var iLbl = new CSS2DObject( iDiv );
+		iLbl.position.x = 11;
+		iLbl.position.y = 28.4;
+		iLbl.position.z = 0;
+		iLbl.name = iLabel;
+		iLbl.visible = false;
+		scene.add( iLbl );
+
+		const lineGeo = new THREE.PlaneGeometry( .4, 15 );
+		const lineMat = new THREE.MeshBasicMaterial( {color: 0xff0000, side: THREE.FrontSide} );
+		const linePlane = new THREE.Mesh( lineGeo, lineMat );
+		linePlane.position.set(10, 15, 60);
+		linePlane.visible = false;
+		scene.add( linePlane );
+
+const lineGeo01 = new THREE.BufferGeometry();
+const lineVert01 = new Float32Array([
+   0, 0, 0,
+   5, 0, 0
+ ]);
+lineGeo01.setAttribute('position', new THREE.BufferAttribute(lineVert01,3));
+const lineColors01 = new Float32Array([
+   1.0, 0.0, 0.0,  // red (normalized)
+   0.0, 1.0, 0.0   // green (normalized)
+ ]);
+lineGeo01.setAttribute('color', new THREE.BufferAttribute(lineColors01,3));
+const lineMat01 = new THREE.LineBasicMaterial({ 
+   vertexColors: THREE.VertexColors, // inform lineMat01 that lineGeo01 
+                               // will provide color info
+   linewidth: 44                // lineWidth not universally supported
+                               // works with safari
+ });
+const lineGrp01 = new THREE.Line(lineGeo01, lineMat01);
+lineGrp01.computeLineDistances();
+scene.add(lineGrp01);
+
+	if ((miniPassed == "d")||(miniPassed == "D")) {
+		labelsNormal = 2;
+		labelRefresher();
+		disasterIce();
+	}
+	if ((miniPassed == "e")||(miniPassed == "E")) {
+		labelsNormal = 3;
+		labelRefresher();
+		disasterLava();
+	}
+	if ((miniPassed == "f")||(miniPassed == "F")) {
+		labelsNormal = 4;
+		labelRefresher();
+		disasterSmoke();
+	}
+	if ((miniPassed == "g")||(miniPassed == "G")) {
+		labelsNormal = 5;
+		labelRefresher();
+		disasterColors();
+	}
+	if ((miniPassed == "h")||(miniPassed == "H")) {
+		labelsNormal = 6;
+		labelRefresher();
+		disasterFire()
+	}
+	if ((miniPassed == "i")||(miniPassed == "I")) {
+		labelsNormal = 7;
+		labelRefresher();
+		disasterFog();
+	}
+	if ((miniPassed == "j")||(miniPassed == "J")) {
+		labelsNormal = 8;
+		labelRefresher();
+		disasterForce();
+	}
+	if ((miniPassed == "k")||(miniPassed == "K")) {
+		labelsNormal = 1;
+		labelRefresher();
+		abortDisasters();
+	}
+	if ((firstChar == "l")||(firstChar == "L")) { 
+		linePlane.visible = true;
+		   setTimeout(function(){
+			linePlane.visible = false;
+		   }, 12500);
+		//alert("Map will draw a line connecting " + miniPassed); 
+	}
+	if ((miniPassed == "m")||(miniPassed == "M")) {
+		// Route lines already on screen will be erased
+		scene.children.filter(child => child.isLine2).forEach(line => {
+			line.material.dispose()
+			line.geometry.dispose()
+			scene.remove(line)
+		})
+	}
+	if ((miniPassed == "n")||(miniPassed == "N")) {
+		//var vectorN = camera.getWorldDirection();
+		//var thetaN = Math.atan2(vectorN.x,vectorN.z);
+		//console.log("thetaN x and y are: " + thetaN );	// not helpful
+		//console.log("thetaN x and y are: " + thetaN.x + " " + thetaN.y );
+		// The next line was the most useful that I had in effort to get variable to pass into a moveControlsTo()
+		//command, yet this gave unusable parameters when scene was orbitally dragged
+		//console.log("x and y are: " + camera.position.x + " " + camera.position.y);
+		//console.log("x and y are: " + controls.target.x + " " + controls.target.y); -- DOES NOT CHANGE WITH DRAG
+		//console.log("x and y are: " + camera.lookAt.x + " " + camera.lookAt.y); -- UNSPECIFIED
+		//console.log("x and y are: " + camera.position.x + " " + camera.position.y);
+		//console.log("x and y are: " + topCamera.position.x + " " + topCamera.position.y);
+		//camera.target.position.set(15,15,0); -- camera.target UNDEFINED
+		//camera.rotation.set(0.5, 0, 0); -- This did nothing
+		//camera.rotation.set(15, 30, 0); -- This did nothing
+		//controls.update(); -- This did nothing
+	// alert("North-is-up orientation will be restored"); 
+	}
+	if ((miniPassed == "o")||(miniPassed == "O")) {
+		if (labelsNormal == 0) {
+			labelsNormal = 1;
+			labelRefresher();
+		}
+		else if (labelsNormal == 1) {
+			labelsNormal = 0;
+			labelRefresher();
+		}
+		else {}
+	}
+	if ((miniPassed == "r")||(miniPassed == "R")) { alert("Re-orientation of screen direction to north"); }
+	if ((miniPassed == "t")||(miniPassed == "T")) { alert("text excerpts appear"); }
+	if ((miniPassed == "u")||(miniPassed == "U")) { alert("video excerpts appear"); }
+	if ((miniPassed == "v")||(miniPassed == "V")) { alert("Video playback will be paused or resumed (toggle)"); }
+	if ((firstChar == "c")||(firstChar == "C")) {
+		categoryGo(miniPassed);
+//		alert("Map will reposition to chapter location " + miniPassed); 
+	}
+	if ((firstChar == "s")||(firstChar == "S")) {
+		sectionGo(miniPassed);
+//		alert("Map will reposition to section location " + miniPassed); 
+	}
+	// "x","X" not assigned (as of Aug 18 2023)
+	if ((miniPassed == "w")||(miniPassed == "W")) { 
+		// Moves to a specific point using the moveControlsTo function
+		let p = {dur: 3.2, x: 12.7, y: 35.01, z: 1440};
+		moveControlsTo(p);
+		 }
+	// c,s,L, x,y,z are identified by firstChar; c,s,L do tasks on miniMap side; x,y,z not set yet - May 7 2024
+	if ((firstChar == "x")||(firstChar == "X")) {
+		const s = prompt(
+			"Enter lineMaker(...) arguments; refer to example here for format, parameters, and sequence",
+			"[ 40, 20, 30, 10, 10, 15 ], \"0xff0000\", 1, 3, \"s\", null, null, null, \"N\""
+		);
+		eval("window.lineMaker(" + s + ")")
+	}
+	if ((firstChar == "y")||(firstChar == "Y")) {
+		// "y","Y" set in frame_minimap to turn off display for "c","s";
+	}
+	if ((firstChar == "z")||(firstChar == "Z")) {
+		//"z","Z" set in frame_minimap to restore display
+	}
+	if (miniPassed == "0") {
+		// parameters for these lines are (at present) hard-coded;
+		// in actual practice, parameters will be changed frequently
+		// commented-out lines may not be included in prompt text box inputs; will lead to error
+	        setTimeout(function(){
+		lineMaker( [ 0, 70.3, 31.5, 70.3, 31.5, 0,  0, 0 ], "0x0000ff", 1, 3, "s", null, null, null, "N" );
+	        }, 2000);
+	        setTimeout(function(){
+		lineMaker( [ 40, 20, 30, 10, 10, 15 ], "0xff0000", 1, 3, "s", null, null, null, "N" );
+	        }, 5500);
+	        setTimeout(function(){
+		lineMaker( [ 43, 22, 33, 12, 13, 17 ], "0x00ff00", 3.5, 3, "d", 0.9, 1, 1, "N" );
+	        }, 9000);
+	        setTimeout(function(){
+		lineMaker( [ 28, 42, 23, 32, 21, 37 ], "0xff00ff", 1, 3, "d", 0.9, 1, 2, "N" );
+	        }, 12500);
+	        setTimeout(function(){
+		// next two mapLines appear jointly
+		lineMaker( [ 18, 47, 13, 37, 11, 42 ], "0x0000CC", 8, 3, "s", null, null, null, "Y" );
+		lineMaker( [ 18, 47, 13, 37, 11, 42 ], "0xFFD700", 1, 3, "d", 0.9, 1, 1, "N" );
+	        }, 16000);
+	}
+	if (miniPassed == "1") {
+		const s = prompt(
+			"Enter here code lines -- e.g., lineMaker(...) statements -- for this three.js program to execute",
+			"[code goes here]"
+		);
+		eval(s)
+	}
+
+
+	if (miniPassed == "2") {
+		//gsapAnims("start");
+    if (gsapAnimToggle == 0) {
+      scene.add( gsapAnim2_7a );
+      scene.add( gsapAnim2_7b );
+      console.log("The two 2_7 scenes have been added");
+      gsapAnimToggle = 1;
+      anim2_7a_tl = gsap.timeline({repeat: -1, repeatDelay: 0, paused:true});
+      anim2_7a_tl.to(gsapAnim2_7a.rotation, {z: -7.85398163397, duration: 7, ease:Linear.easeNone });
+    }
+	}
+	if (miniPassed == "3") {
+		// THIS VARIABLE CAN BE RE-ASSIGNED SOON
+		console.log("gsapAnim2_7a is about to be targeted");
+		//gsapAnims("2_7a");
+    anim2_7a_tl.paused(false);
+//		gsapAnm_2_7a;
+/*
+		gsapAnim2_7a.material.opacity = 0.2;
+		gsapAnim2_7a.position.y = 50;
+*/
+/*
+		gsap.to(gsapAnim2_7a.material, {
+		            opacity: 0.2,
+		            duration: 3
+		            });
+		gsap.to(gsapAnim2_7a.position, {
+		            y: 50,
+		            duration: 3
+		            });
+*/
+	}
+	if (miniPassed == "4") {
+		//gsapAnims("stop");
+    anim2_7a_tl.paused(true);
+	}
+	if (miniPassed == "5") {
+	}
+	if (miniPassed == "8") {
+		labelsNormal = 9;
+		labelRefresher();
+	}
+	if (miniPassed == "9") {
+		labelsNormal = 10;
+		labelRefresher();
+	}
+}
+
+function moveControlsTo(point) {
+	gsap.to( controls.target, {
+		duration: dur,
+		x: point.x,
+		y: point.y,
+		z: 0,
+	});
+	gsap.to(camera.position, {
+		duration: dur,
+		x: point.x,
+		y: point.y, 
+		z: point.z,
+	}); // Setting the camera position to the same point as controls.target
+}
+
+function categPixRefresher() {
+	let zPosW = camera.position.z;
+	let zPos = zPosW.toFixed(2);
+	let xPos = camera.position.x;
+	let yPos = camera.position.y;
+	let picC = document.getElementById('sceneSubstitute');
+
+	if ((zPos <= 145)&&(zPos > 10)) {
+	}
+	else if (zPos > 145) {
+		picC.style.backgroundImage="none";
+	}
+	else {
+		picC.style.backgroundImage="none";
+	}
+
+
+	if (zPos <= 1420) {
+		return;
+	} else { }
+
+	return;
+}
+
+function gsapAnims(tokn) {
+          console.log("tokn is " + tokn);
+          console.log("gsapAnimToggle is " + gsapAnimToggle);
+
+          gsapAnim2_7a.rotation.z = 0;
+
+          var anim2_7a_tl = gsap.timeline({repeat: -1, repeatDelay: 0});
+          anim2_7a_tl.to(gsapAnim2_7a.rotation, {z: -7.85398163397, duration: 7, ease:Linear.easeNone });
+          anim2_7a_tl.pause();
+
+          if (gsapAnimToggle == 0) {
+	scene.add( gsapAnim2_7a );
+	scene.add( gsapAnim2_7b );
+	console.log("The two 2_7 scenes have been added");
+	gsapAnimToggle = 1;
+          } else { }
+          console.log("gsapAnimToggle is " + gsapAnimToggle);
+
+
+	if (tokn == "2_7a") {		// this comes off pressing "3"
+		//anim2_7a_tl.totalProgress(1.0);
+          //anim2_7a_tl.resume();
+	} else if (tokn == "stop") {		// this comes off pressing "4"
+  console.log('stop');
+		//anim2_7a_tl.totalProgress(1.0);
+		anim2_7a_tl.pause();
+//		anim2_7a_tl.kill();	// this didn't work
+	} else { }
+	console.log("gsapAnim2_7a.rotation.z is " + gsapAnim2_7a.rotation.z);
+}
+
+function disasterLava() {
+    const imageLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    const numOfImages = 22;
+    const volcanoPlanes = [];
+    const lavaFlowPlanes = [];
+    const textureLoader = new THREE.TextureLoader();
+    const planeGeometry = new THREE.PlaneGeometry(31.5, 6.3);
+
+    // Load and create meshes for both the volcano and lava flow animations
+    for (let i = 0; i < numOfImages; i++) {
+        const letter = imageLetters[i];
+
+        // Volcano
+        const volcanoTexture = textureLoader.load(`./externals/disasters/Volcano_${letter}.png`);
+        const volcanoMaterial = new THREE.MeshBasicMaterial({ map: volcanoTexture, transparent: true, side: THREE.FrontSide });
+        const volcanoMesh = new THREE.Mesh(planeGeometry, volcanoMaterial);
+        volcanoMesh.position.set(15.75, 3.75, 54.5);
+		volcanoMesh.needDestroy = true;
+        volcanoPlanes.push(volcanoMesh);
+
+        // LavaFlow
+        const lavaFlowTexture = textureLoader.load(`./externals/disasters/LavaFlow_${letter}.png`);
+        const lavaFlowMaterial = new THREE.MeshBasicMaterial({ map: lavaFlowTexture, transparent: true, side: THREE.FrontSide });
+        const lavaFlowMesh = new THREE.Mesh(planeGeometry, lavaFlowMaterial);
+        lavaFlowMesh.position.set(15.75, 3.75, 54.5);
+		lavaFlowMesh.needDestroy = true;
+        lavaFlowPlanes.push(lavaFlowMesh);
+    }
+
+    // Animation mechanism
+    let lavaIndex = 0;
+    let volcanoIndex = 0;
+    const animateLavaFlow = () => {
+        // Display the current lava flow image
+		scene.add(lavaFlowPlanes[lavaIndex]);
+
+        // Hide the previous lava flow image, if not the first
+        if (lavaIndex > 0) {
+            scene.remove(lavaFlowPlanes[lavaIndex - 1]);
+        }
+
+        // Increment the index or stop the animation after the last image
+        lavaIndex++;
+        if (lavaIndex < numOfImages) {
+            setTimeout(animateLavaFlow, 200);
+        }
+    };
+
+    const animateVolcano = () => {
+        // Display the current volcano image
+        scene.add(volcanoPlanes[volcanoIndex])
+
+        // Hide the previous volcano image, if not the first
+        if (volcanoIndex > 0) {
+            scene.remove(volcanoPlanes[volcanoIndex - 1]);
+        }
+
+        // Increment the index or reset to 0 after the last image
+        volcanoIndex = (volcanoIndex + 1) % numOfImages;
+        setTimeout(animateVolcano, 200);
+    };
+
+    // Trigger the animations
+    animateLavaFlow();
+    animateVolcano();
+
+	setTimeout(function(){
+        // Create the behindLava02 plane
+        let behindLavaGeometry02 = new THREE.PlaneGeometry(28.5, 6.5);
+        let behindLavaMaterial02 = new THREE.MeshBasicMaterial({
+            color: 0xc9d1c28,
+            transparent: true, 
+            opacity: 0, 
+            side: THREE.FrontSide
+        });
+        const behindLava02 = new THREE.Mesh(behindLavaGeometry02, behindLavaMaterial02);
+        behindLava02.needDestroy = true;
+        behindLava02.position.set(15.75, 10.75, 54.5);
+        scene.add(behindLava02);
+        // Use GSAP to animate the opacity of behindLava02
+        gsap.to(behindLava02.material, {
+            opacity: 0.6,
+            duration: 3
+            });
+        let behindLavaGeometry03 = new THREE.PlaneGeometry(28.5, 5.4);
+        let behindLavaMaterial03 = new THREE.MeshBasicMaterial({
+            color: 0xc9d1c28,
+            transparent: true, 
+            opacity: 0, 
+            side: THREE.FrontSide
+        });
+        const behindLava03 = new THREE.Mesh(behindLavaGeometry03, behindLavaMaterial03);
+        behindLava03.needDestroy = true;
+        behindLava03.position.set(15.75, 17.3, 54.5);
+        scene.add(behindLava03);
+        gsap.to(behindLava03.material, {
+            delay: 3,
+            opacity: 0.6,
+            duration: 3
+            });
+        let behindLavaGeometry04 = new THREE.PlaneGeometry(28.5, 4.8);
+        let behindLavaMaterial04 = new THREE.MeshBasicMaterial({
+            color: 0xc9d1c28,
+            transparent: true, 
+            opacity: 0, 
+            side: THREE.FrontSide
+        });
+        const behindLava04 = new THREE.Mesh(behindLavaGeometry04, behindLavaMaterial04);
+        behindLava04.needDestroy = true;
+        behindLava04.position.set(15.75, 23, 54.5);
+        scene.add(behindLava04);
+        gsap.to(behindLava04.material, {
+            delay: 5,
+            opacity: 0.6,
+            duration: 3
+            });
+        let behindLavaGeometry05 = new THREE.PlaneGeometry(28.5, 6.9);
+        let behindLavaMaterial05 = new THREE.MeshBasicMaterial({
+            color: 0xc9d1c28,
+            transparent: true, 
+            opacity: 0, 
+            side: THREE.FrontSide
+        });
+        const behindLava05 = new THREE.Mesh(behindLavaGeometry05, behindLavaMaterial05);
+        behindLava05.needDestroy = true;
+        behindLava05.position.set(15.75, 29.45, 54.5);
+        scene.add(behindLava05);
+        gsap.to(behindLava05.material, {
+            delay: 7,
+            opacity: 0.6,
+            duration: 3
+            });
+        let behindLavaGeometry06 = new THREE.PlaneGeometry(31.5, 6.3);
+        let behindLavaMaterial06 = new THREE.MeshBasicMaterial({
+            color: 0xc9d1c28,
+            transparent: true, 
+            opacity: 0, 
+            side: THREE.FrontSide
+        });
+        const behindLava06 = new THREE.Mesh(behindLavaGeometry06, behindLavaMaterial06);
+        behindLava06.needDestroy = true;
+        behindLava06.position.set(15.75, 36.65, 54.5);
+        scene.add(behindLava06);
+        gsap.to(behindLava06.material, {
+            delay: 9,
+            opacity: 0.6,
+            duration: 3
+            });
+        let behindLavaGeometry07 = new THREE.PlaneGeometry(31.5, 6.4);
+        let behindLavaMaterial07 = new THREE.MeshBasicMaterial({
+            color: 0xc9d1c28,
+            transparent: true, 
+            opacity: 0, 
+            side: THREE.FrontSide
+        });
+        const behindLava07 = new THREE.Mesh(behindLavaGeometry07, behindLavaMaterial07);
+        behindLava07.needDestroy = true;
+        behindLava07.position.set(15.75, 43.6, 54.5);
+        scene.add(behindLava07);
+        gsap.to(behindLava07.material, {
+            delay: 11,
+            opacity: 0.6,
+            duration: 3
+            });
+        let behindLavaGeometry08 = new THREE.PlaneGeometry(31.5, 6.8);
+        let behindLavaMaterial08 = new THREE.MeshBasicMaterial({
+            color: 0xc9d1c28,
+            transparent: true, 
+            opacity: 0, 
+            side: THREE.FrontSide
+        });
+        const behindLava08 = new THREE.Mesh(behindLavaGeometry08, behindLavaMaterial08);
+        behindLava08.needDestroy = true;
+        behindLava08.position.set(15.75, 50.8, 54.5);
+        scene.add(behindLava08);
+        gsap.to(behindLava08.material, {
+            delay: 13,
+            opacity: 0.6,
+            duration: 3
+            });
+        let behindLavaGeometry09 = new THREE.PlaneGeometry(31.5, 3.7);
+        let behindLavaMaterial09 = new THREE.MeshBasicMaterial({
+            color: 0xc9d1c28,
+            transparent: true, 
+            opacity: 0, 
+            side: THREE.FrontSide
+        });
+        const behindLava09 = new THREE.Mesh(behindLavaGeometry09, behindLavaMaterial09);
+        behindLava09.needDestroy = true;
+        behindLava09.position.set(15.75, 56.65, 54.5);
+        scene.add(behindLava09);
+        gsap.to(behindLava09.material, {
+            delay: 15,
+            opacity: 0.6,
+            duration: 3
+            });
+        let behindLavaGeometry10 = new THREE.PlaneGeometry(15, 5.1);
+        let behindLavaMaterial10 = new THREE.MeshBasicMaterial({
+            color: 0xc9d1c28,
+            transparent: true, 
+            opacity: 0, 
+            side: THREE.FrontSide
+        });
+        const behindLava10 = new THREE.Mesh(behindLavaGeometry10, behindLavaMaterial10);
+        behindLava10.needDestroy = true;
+        behindLava10.position.set(7.5, 61.65, 54.5);
+        scene.add(behindLava10);
+        gsap.to(behindLava10.material, {
+            delay: 17,
+            opacity: 0.6,
+            duration: 3
+            });
+        let behindLavaGeometry11 = new THREE.PlaneGeometry(15, 4.2);
+        let behindLavaMaterial11 = new THREE.MeshBasicMaterial({
+            color: 0xc9d1c28,
+            transparent: true, 
+            opacity: 0, 
+            side: THREE.FrontSide
+        });
+        const behindLava11 = new THREE.Mesh(behindLavaGeometry11, behindLavaMaterial11);
+        behindLava11.needDestroy = true;
+        behindLava11.position.set(7.5, 66.9, 54.5);
+        scene.add(behindLava11);
+        gsap.to(behindLava11.material, {
+            delay: 19,
+            opacity: 0.6,
+            duration: 3
+            });
+        let behindLavaGeometry12 = new THREE.PlaneGeometry(15, 9.9);
+        let behindLavaMaterial12 = new THREE.MeshBasicMaterial({
+            color: 0xc9d1c28,
+            transparent: true, 
+            opacity: 0, 
+            side: THREE.FrontSide
+        });
+        const behindLava12 = new THREE.Mesh(behindLavaGeometry12, behindLavaMaterial12);
+        behindLava12.needDestroy = true;
+        behindLava12.position.set(24, 64.05, 54.5);
+        scene.add(behindLava12);
+        gsap.to(behindLava12.material, {
+            delay: 17,
+            opacity: 0.6,
+            duration: 3
+            });
+        }, 4000);
+}
+
+function disasterIce() {
+    const coverIceTextureLoader = new THREE.TextureLoader();
+    const coverIceTexture = coverIceTextureLoader.load('./externals/disasters/Ice__labrador_reduced_notAlpha.png');
+    const coverIceMaterial = new THREE.MeshBasicMaterial({ map: coverIceTexture, transparent: true, opacity: 0, side: THREE.FrontSide });
+    const coverIceGeometry01 = new THREE.PlaneGeometry(31.5, 6.3);
+    const coverIce01 = new THREE.Mesh(coverIceGeometry01, coverIceMaterial);
+    coverIce01.needDestroy = true;
+    coverIce01.position.set(15.75, 3.75, 54.5);
+    scene.add(coverIce01);
+
+    // Fade in coverIce01 over 3 seconds
+    gsap.to(coverIce01.material, {
+        opacity: 0.85,
+        duration: 3,
+        onComplete: function() {
+            // Create and add the behindIce02 plane to the scene
+            let behindIceGeometry02 = new THREE.PlaneGeometry(28.5, 6.5);
+            let behindIceMaterial02 = new THREE.MeshBasicMaterial({
+                color: 0xdaf1e9,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindIce02 = new THREE.Mesh(behindIceGeometry02, behindIceMaterial02);
+            behindIce02.needDestroy = true;
+            behindIce02.position.set(15.75, 10.75, 54.5);
+            scene.add(behindIce02);
+           let behindIceGeometry03 = new THREE.PlaneGeometry(28.5, 5.4);
+            let behindIceMaterial03 = new THREE.MeshBasicMaterial({
+                color: 0xdaf1e9,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindIce03 = new THREE.Mesh(behindIceGeometry03, behindIceMaterial03);
+            behindIce03.needDestroy = true;
+            behindIce03.position.set(15.75, 17.3, 54.5);
+            scene.add(behindIce03);
+           let behindIceGeometry04 = new THREE.PlaneGeometry(28.5, 4.8);
+            let behindIceMaterial04 = new THREE.MeshBasicMaterial({
+                color: 0xdaf1e9,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindIce04 = new THREE.Mesh(behindIceGeometry04, behindIceMaterial04);
+            behindIce04.needDestroy = true;
+            behindIce04.position.set(15.75, 23, 54.5);
+            scene.add(behindIce04);
+           let behindIceGeometry05 = new THREE.PlaneGeometry(28.5, 6.9);
+            let behindIceMaterial05 = new THREE.MeshBasicMaterial({
+                color: 0xdaf1e9,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindIce05 = new THREE.Mesh(behindIceGeometry05, behindIceMaterial05);
+            behindIce05.needDestroy = true;
+            behindIce05.position.set(15.75, 29.45, 54.5);
+            scene.add(behindIce05);
+           let behindIceGeometry06 = new THREE.PlaneGeometry(31.5, 6.3);
+            let behindIceMaterial06 = new THREE.MeshBasicMaterial({
+                color: 0xdaf1e9,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindIce06 = new THREE.Mesh(behindIceGeometry06, behindIceMaterial06);
+            behindIce06.needDestroy = true;
+            behindIce06.position.set(15.75, 36.65, 54.5);
+            scene.add(behindIce06);
+           let behindIceGeometry07 = new THREE.PlaneGeometry(31.5, 6.4);
+            let behindIceMaterial07 = new THREE.MeshBasicMaterial({
+                color: 0xdaf1e9,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindIce07 = new THREE.Mesh(behindIceGeometry07, behindIceMaterial07);
+            behindIce07.needDestroy = true;
+            behindIce07.position.set(15.75, 43.6, 54.5);
+            scene.add(behindIce07);
+           let behindIceGeometry08 = new THREE.PlaneGeometry(31.5, 6.8);
+            let behindIceMaterial08 = new THREE.MeshBasicMaterial({
+                color: 0xdaf1e9,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindIce08 = new THREE.Mesh(behindIceGeometry08, behindIceMaterial08);
+            behindIce08.needDestroy = true;
+            behindIce08.position.set(15.75, 50.8, 54.5);
+            scene.add(behindIce08);
+           let behindIceGeometry09 = new THREE.PlaneGeometry(31.5, 3.7);
+            let behindIceMaterial09 = new THREE.MeshBasicMaterial({
+                color: 0xdaf1e9,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindIce09 = new THREE.Mesh(behindIceGeometry09, behindIceMaterial09);
+            behindIce09.needDestroy = true;
+            behindIce09.position.set(15.75, 56.65, 54.5);
+            scene.add(behindIce09);
+           let behindIceGeometry10 = new THREE.PlaneGeometry(15, 5.1);
+            let behindIceMaterial10 = new THREE.MeshBasicMaterial({
+                color: 0xdaf1e9,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindIce10 = new THREE.Mesh(behindIceGeometry10, behindIceMaterial10);
+            behindIce10.needDestroy = true;
+            behindIce10.position.set(7.5, 61.65, 54.5);
+            scene.add(behindIce10);
+           let behindIceGeometry11 = new THREE.PlaneGeometry(15, 4.2);
+            let behindIceMaterial11 = new THREE.MeshBasicMaterial({
+                color: 0xdaf1e9,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindIce11 = new THREE.Mesh(behindIceGeometry11, behindIceMaterial11);
+            behindIce11.needDestroy = true;
+            behindIce11.position.set(7.5, 66.9, 54.5);
+            scene.add(behindIce11);
+           let behindIceGeometry12 = new THREE.PlaneGeometry(15, 9.9);
+            let behindIceMaterial12 = new THREE.MeshBasicMaterial({
+                color: 0xdaf1e9,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindIce12 = new THREE.Mesh(behindIceGeometry12, behindIceMaterial12);
+            behindIce12.needDestroy = true;
+            behindIce12.position.set(24, 64.05, 54.5);
+            scene.add(behindIce12);
+            gsap.to(behindIce02.material, {
+                delay: 3,
+                opacity: 0.6,
+                duration: 3
+            });
+           gsap.to(behindIce03.material, {
+                delay: 5,
+                opacity: 0.6,
+                duration: 3
+            });
+           gsap.to(behindIce04.material, {
+                delay: 7,
+                opacity: 0.6,
+                duration: 3
+            });
+           gsap.to(behindIce05.material, {
+                delay: 9,
+                opacity: 0.6,
+                duration: 3
+            });
+           gsap.to(behindIce06.material, {
+                delay: 11,
+                opacity: 0.6,
+                duration: 3
+            });
+           gsap.to(behindIce07.material, {
+                delay: 13,
+                opacity: 0.6,
+                duration: 3
+            });
+           gsap.to(behindIce08.material, {
+                delay: 15,
+                opacity: 0.6,
+                duration: 3
+            });
+           gsap.to(behindIce09.material, {
+                delay: 17,
+                opacity: 0.6,
+                duration: 3
+            });
+           gsap.to(behindIce10.material, {
+                delay: 19,
+                opacity: 0.6,
+                duration: 3
+            });
+           gsap.to(behindIce11.material, {
+                delay: 21,
+                opacity: 0.6,
+                duration: 3
+            });
+            gsap.to(behindIce12.material, {
+                delay: 19,
+                opacity: 0.6,
+                duration: 3
+            });
+        }
+    });
+}
+
+function disasterColors() {
+    const coverColorsTextureLoader = new THREE.TextureLoader();
+    const coverColorsTexture = coverColorsTextureLoader.load('./externals/disasters/ColorBlocks04.png');
+    const coverColorsMaterial = new THREE.MeshBasicMaterial({ map: coverColorsTexture, transparent: true, opacity: 0, side: THREE.FrontSide });
+    const coverColorsGeometry04 = new THREE.PlaneGeometry(28.5, 4.8);
+    const coverColors04 = new THREE.Mesh(coverColorsGeometry04, coverColorsMaterial);
+    coverColors04.position.set(15.75, 23, 54.5);
+    coverColors04.needDestroy = true;
+    scene.add(coverColors04);
+
+    // Fade in coverColors04 over 3 seconds
+    gsap.to(coverColors04.material, {
+        opacity: 0.35,
+        duration: 3,
+        onComplete: function() {
+            // Create and add the behindColors04 plane to the scene
+            let behindColorsGeometry04 = new THREE.PlaneGeometry(28.5, 4.8);
+            let behindColorsMaterial04 = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0,
+                side: THREE.FrontSide
+            });
+            const behindColors04 = new THREE.Mesh(behindColorsGeometry04, behindColorsMaterial04);
+            behindColors04.position.set(15.75, 23, 54.5);
+            behindColors04.needDestroy = true;
+            scene.add(behindColors04);
+
+            // Wait 3 seconds, then fade in behindColors04 over 3 seconds
+            gsap.to(behindColors04.material, {
+                delay: 2,
+                opacity: 0.6,
+                duration: 2,
+                onComplete: function() {
+                    // Create and add the behindColors05 plane to the scene
+                    let behindColorsGeometry05 = new THREE.PlaneGeometry(28.5, 6.9);
+                    let behindColorsMaterial05 = new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0,
+                        side: THREE.FrontSide
+                    });
+                    const behindColors05 = new THREE.Mesh(behindColorsGeometry05, behindColorsMaterial05);
+                    behindColors05.position.set(15.75, 29.45, 54.5);
+	behindColors05.needDestroy = true;
+                    scene.add(behindColors05);
+                    gsap.to(behindColors05.material, {
+                        delay: 1,
+                        opacity: 0.6,
+                        duration: 3
+                    });
+                    let behindColorsGeometry06 = new THREE.PlaneGeometry(31.5, 6.3);
+                    let behindColorsMaterial06 = new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0,
+                        side: THREE.FrontSide
+                    });
+                    const behindColors06 = new THREE.Mesh(behindColorsGeometry06, behindColorsMaterial06);
+                    behindColors06.position.set(15.75, 36.65, 54.5);
+	behindColors06.needDestroy = true;
+                    scene.add(behindColors06);
+                    gsap.to(behindColors06.material, {
+                        delay: 3,
+                        opacity: 0.6,
+                        duration: 3
+                    });
+                    let behindColorsGeometry07 = new THREE.PlaneGeometry(31.5, 6.4);
+                    let behindColorsMaterial07 = new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0,
+                        side: THREE.FrontSide
+                    });
+                    const behindColors07 = new THREE.Mesh(behindColorsGeometry07, behindColorsMaterial07);
+                    behindColors07.position.set(15.75, 43.6, 54.5);
+	behindColors07.needDestroy = true;
+                    scene.add(behindColors07);
+                    gsap.to(behindColors07.material, {
+                        delay: 5,
+                        opacity: 0.6,
+                        duration: 3
+                    });
+                    let behindColorsGeometry08 = new THREE.PlaneGeometry(31.5, 6.8);
+                    let behindColorsMaterial08 = new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0,
+                        side: THREE.FrontSide
+                    });
+                    const behindColors08 = new THREE.Mesh(behindColorsGeometry08, behindColorsMaterial08);
+                    behindColors08.position.set(15.75, 50.8, 54.5);
+	behindColors08.needDestroy = true;
+                    scene.add(behindColors08);
+                    gsap.to(behindColors08.material, {
+                        delay: 7,
+                        opacity: 0.6,
+                        duration: 3
+                    });
+                    let behindColorsGeometry09 = new THREE.PlaneGeometry(31.5, 3.7);
+                    let behindColorsMaterial09 = new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0,
+                        side: THREE.FrontSide
+                    });
+                    const behindColors09 = new THREE.Mesh(behindColorsGeometry09, behindColorsMaterial09);
+                    behindColors09.position.set(15.75, 56.65, 54.5);
+	behindColors09.needDestroy = true;
+                    scene.add(behindColors09);
+                    gsap.to(behindColors09.material, {
+                        delay: 9,
+                        opacity: 0.6,
+                        duration: 3
+                    });
+                    let behindColorsGeometry10 = new THREE.PlaneGeometry(15, 5.1);
+                    let behindColorsMaterial10 = new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0,
+                        side: THREE.FrontSide
+                    });
+                    const behindColors10 = new THREE.Mesh(behindColorsGeometry10, behindColorsMaterial10);
+                    behindColors10.position.set(7.5, 61.65, 54.5);
+	behindColors10.needDestroy = true;
+                    scene.add(behindColors10);
+                    gsap.to(behindColors10.material, {
+                        delay: 11,
+                        opacity: 0.6,
+                        duration: 3
+                    });
+                    let behindColorsGeometry11 = new THREE.PlaneGeometry(15, 4.2);
+                    let behindColorsMaterial11 = new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0,
+                        side: THREE.FrontSide
+                    });
+                    const behindColors11 = new THREE.Mesh(behindColorsGeometry11, behindColorsMaterial11);
+                    behindColors11.position.set(7.5, 66.9, 54.5);
+	behindColors11.needDestroy = true;
+                    scene.add(behindColors11);
+                    gsap.to(behindColors11.material, {
+                        delay: 13,
+                        opacity: 0.6,
+                        duration: 3
+                    });
+                    let behindColorsGeometry12 = new THREE.PlaneGeometry(15, 9.9);
+                    let behindColorsMaterial12 = new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0,
+                        side: THREE.FrontSide
+                    });
+                    const behindColors12 = new THREE.Mesh(behindColorsGeometry12, behindColorsMaterial12);
+                    behindColors12.position.set(24, 64.05, 54.5);
+	behindColors12.needDestroy = true;
+                    scene.add(behindColors12);
+                    gsap.to(behindColors12.material, {
+                        delay: 11,
+                        opacity: 0.6,
+                        duration: 3
+                    });
+                }
+            });
+        }
+    });
+}
+
+function disasterFog() {
+    let coverGeometry05 = new THREE.PlaneGeometry(28.5, 6.9);
+    let coverMaterial05 = new THREE.MeshBasicMaterial({
+        color: 0xbbbbbb,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const cover05 = new THREE.Mesh(coverGeometry05, coverMaterial05);
+    cover05.position.set(15.75, 29.45, 54.5);
+    cover05.needDestroy = true;
+    cover05.material.opacity = 0.6;
+    scene.add(cover05);
+
+    const fogCircGeo = new THREE.CircleGeometry(.3, 32, 0, 6);
+    const fogCircMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true
+    });
+    for (let p = 0; p < 50; p++) {
+        let fogPuff05 = new THREE.Mesh(fogCircGeo, fogCircMaterial);
+        fogPuff05.needDestroy = true;
+        fogPuff05.position.set(
+            ((Math.random() * (28 - 2)) + 2),
+            ((Math.random()*(32.4 -26.5)) + 26.5),
+            55
+        );
+        fogPuff05.scale.x = 5;
+        fogPuff05.rotation.x = 1.16;
+        fogPuff05.rotation.y = -0.12;
+        fogPuff05.rotation.z = Math.random() * 2 * Math.PI;
+        fogPuff05.material.opacity = 0.55;
+        fogPuff05Particles.push(fogPuff05);
+        scene.add(fogPuff05);
+    }
+
+    const fogTorusGeometry = new THREE.TorusGeometry(0.35, 0.25, 15, 40, 3.458);
+    const fogTorusMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true
+    });
+    for (let p = 0; p < 120; p++) {
+        let fogTorus05 = new THREE.Mesh(fogTorusGeometry, fogTorusMaterial);
+        fogTorus05.needDestroy = true;
+        fogTorus05.scale.set(2.5, 0.5, 0.5);
+        fogTorus05.needDestroy = true;
+        fogTorus05.position.set(
+            ((Math.random() * (28 - 2)) + 2),
+            ((Math.random()*(32.4 -26.5)) + 26.5),
+            55
+        );
+        fogTorus05.rotation.x = 1.16;
+        fogTorus05.rotation.y = -0.12;
+        fogTorus05.rotation.z = Math.random() * 2 * Math.PI;
+        fogTorus05.material.opacity = 0.55;
+        fogTorus05Particles.push(fogTorus05);
+        scene.add(fogTorus05);
+    }
+
+    let behindFogGeometry05 = new THREE.PlaneGeometry(28.5, 6.9);
+    let behindFogMaterial05 = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFog05 = new THREE.Mesh(behindFogGeometry05, behindFogMaterial05);
+    behindFog05.needDestroy = true;
+    behindFog05.position.set(15.75, 29.45, 54.5);
+    scene.add(behindFog05);
+	gsap.to(behindFog05.material, {
+	delay: 10,
+	opacity: .4,
+	duration: 8,
+	});
+    let behindFogGeometry06 = new THREE.PlaneGeometry(31.5, 6.3);
+    let behindFogMaterial06 = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFog06 = new THREE.Mesh(behindFogGeometry06, behindFogMaterial06);
+    behindFog06.needDestroy = true;
+    behindFog06.position.set(15.75, 36.65, 54.5);
+    scene.add(behindFog06);
+	gsap.to(behindFog06.material, {
+	delay: 4,
+	opacity: .6,
+	duration: 3,
+	});
+    let behindFogGeometry07 = new THREE.PlaneGeometry(31.5, 6.4);
+    let behindFogMaterial07 = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFog07 = new THREE.Mesh(behindFogGeometry07, behindFogMaterial07);
+    behindFog07.needDestroy = true;
+    behindFog07.position.set(15.75, 43.6, 54.5);
+    scene.add(behindFog07);
+	gsap.to(behindFog07.material, {
+	delay: 6,
+	opacity: .6,
+	duration: 3,
+	});
+    let behindFogGeometry08 = new THREE.PlaneGeometry(31.5, 6.8);
+    let behindFogMaterial08 = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFog08 = new THREE.Mesh(behindFogGeometry08, behindFogMaterial08);
+    behindFog08.needDestroy = true;
+    behindFog08.position.set(15.75, 50.8, 54.5);
+    scene.add(behindFog08);
+	gsap.to(behindFog08.material, {
+	delay: 8,
+	opacity: .6,
+	duration: 3,
+	});
+    let behindFogGeometry09 = new THREE.PlaneGeometry(31.5, 3.7);
+    let behindFogMaterial09 = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFog09 = new THREE.Mesh(behindFogGeometry09, behindFogMaterial09);
+    behindFog09.needDestroy = true;
+    behindFog09.position.set(15.75, 56.65, 54.5);
+    scene.add(behindFog09);
+	gsap.to(behindFog09.material, {
+	delay: 10,
+	opacity: .6,
+	duration: 3,
+	});
+    let behindFogGeometry10 = new THREE.PlaneGeometry(15, 5.1);
+    let behindFogMaterial10 = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFog10 = new THREE.Mesh(behindFogGeometry10, behindFogMaterial10);
+    behindFog10.needDestroy = true;
+    behindFog10.position.set(7.5, 61.65, 54.5);
+    scene.add(behindFog10);
+	gsap.to(behindFog10.material, {
+	delay: 12,
+	opacity: .6,
+	duration: 3,
+	});
+    let behindFogGeometry11 = new THREE.PlaneGeometry(15, 4.2);
+    let behindFogMaterial11 = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFog11 = new THREE.Mesh(behindFogGeometry11, behindFogMaterial11);
+    behindFog11.needDestroy = true;
+    behindFog11.position.set(7.5, 66.9, 54.5);
+    scene.add(behindFog11);
+	gsap.to(behindFog11.material, {
+	delay: 14,
+	opacity: .6,
+	duration: 3,
+	});
+    let behindFogGeometry12 = new THREE.PlaneGeometry(15, 9.9);
+    let behindFogMaterial12 = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFog12 = new THREE.Mesh(behindFogGeometry12, behindFogMaterial12);
+    behindFog12.needDestroy = true;
+    behindFog12.position.set(24, 64.05, 54.5);
+    scene.add(behindFog12);
+	gsap.to(behindFog12.material, {
+	delay: 12,
+	opacity: .6,
+	duration: 3,
+	});
+}
+
+function disasterFire() {
+    const fireLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'];
+    var fireMeshes = [];
+
+    // Load and create fire planes
+    const textureLoader = new THREE.TextureLoader();
+    fireLetters.forEach(letter => {
+        const texture = textureLoader.load(`./externals/disasters/doom_fire_${letter}.png`);
+        const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.FrontSide });
+        const geometry = new THREE.PlaneGeometry(28.5, 6.9);
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(15.75, 29.45, 54.5);
+        mesh.needDestroy = true;
+        fireMeshes.push(mesh);
+    });
+
+    // Animate fire planes
+    let currentMeshIndex = 0;
+    let direction = 1; // 1 for forward, -1 for reverse
+    const animateFire = () => {
+		// If currently displayed, remove from scene
+		if (fireMeshes[currentMeshIndex] && fireMeshes[currentMeshIndex].parent) {
+			scene.remove(fireMeshes[currentMeshIndex]);
+		}
+
+		currentMeshIndex += direction;
+
+		// Check boundaries
+		if (currentMeshIndex < 0) {
+			currentMeshIndex = 0;  // Ensure it doesn't go below 0
+			direction = 1;        // Set direction to forward
+		} else if (currentMeshIndex === fireMeshes.length) {
+			currentMeshIndex = fireMeshes.length - 1;  // Ensure it doesn't exceed the array length
+			direction = -1;                           // Set direction to reverse
+		}
+
+		// Reverse direction at boundaries
+		if (direction == 1 && currentMeshIndex === fireMeshes.length - 1) {
+			direction = -direction;
+		} else if (direction == -1 && currentMeshIndex === 6) {
+			direction = -direction;
+		}
+
+		if (fireMeshes[currentMeshIndex]) {
+			scene.add(fireMeshes[currentMeshIndex]);
+		}
+
+		setTimeout(animateFire, 150);
+	};
+    // Start the animation
+    setTimeout(animateFire, 150);
+
+    // Fade-in for the behindFire06 plane
+    let behindFireGeometry06 = new THREE.PlaneGeometry(31.5, 6.3);
+    let behindFireMaterial06 = new THREE.MeshBasicMaterial({
+        color: 0xFFD700,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFire06 = new THREE.Mesh(behindFireGeometry06, behindFireMaterial06);
+    behindFire06.position.set(15.75, 36.65, 54.5);
+    behindFire06.needDestroy = true;
+    scene.add(behindFire06);
+    gsap.to(behindFire06.material, {
+        delay: 6,
+        opacity: 0.6,
+        duration: 3
+    });
+    let behindFireGeometry07 = new THREE.PlaneGeometry(31.5, 6.4);
+    let behindFireMaterial07 = new THREE.MeshBasicMaterial({
+        color: 0xFFD700,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFire07 = new THREE.Mesh(behindFireGeometry07, behindFireMaterial07);
+    behindFire07.position.set(15.75, 43.6, 54.5);
+    behindFire07.needDestroy = true;
+    scene.add(behindFire07);
+    gsap.to(behindFire07.material, {
+        delay: 8,
+        opacity: 0.6,
+        duration: 3
+    });
+    let behindFireGeometry08 = new THREE.PlaneGeometry(31.5, 6.8);
+    let behindFireMaterial08 = new THREE.MeshBasicMaterial({
+        color: 0xFFD700,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFire08 = new THREE.Mesh(behindFireGeometry08, behindFireMaterial08);
+    behindFire08.position.set(15.75, 50.8, 54.5);
+    behindFire08.needDestroy = true;
+    scene.add(behindFire08);
+    gsap.to(behindFire08.material, {
+        delay: 10,
+        opacity: 0.6,
+        duration: 3
+    });
+    let behindFireGeometry09 = new THREE.PlaneGeometry(31.5, 3.7);
+    let behindFireMaterial09 = new THREE.MeshBasicMaterial({
+        color: 0xFFD700,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFire09 = new THREE.Mesh(behindFireGeometry09, behindFireMaterial09);
+    behindFire09.position.set(15.75, 56.65, 54.5);
+    behindFire09.needDestroy = true;
+    scene.add(behindFire09);
+    gsap.to(behindFire09.material, {
+        delay: 12,
+        opacity: 0.6,
+        duration: 3
+    });
+    let behindFireGeometry10 = new THREE.PlaneGeometry(15, 5.1);
+    let behindFireMaterial10 = new THREE.MeshBasicMaterial({
+        color: 0xFFD700,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFire10 = new THREE.Mesh(behindFireGeometry10, behindFireMaterial10);
+    behindFire10.position.set(7.5, 61.65, 54.5);
+    behindFire10.needDestroy = true;
+    scene.add(behindFire10);
+    gsap.to(behindFire10.material, {
+        delay: 14,
+        opacity: 0.6,
+        duration: 3
+    });
+    let behindFireGeometry11 = new THREE.PlaneGeometry(15, 4.2);
+    let behindFireMaterial11 = new THREE.MeshBasicMaterial({
+        color: 0xFFD700,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFire11 = new THREE.Mesh(behindFireGeometry11, behindFireMaterial11);
+    behindFire11.position.set(7.5, 66.9, 54.5);
+    behindFire11.needDestroy = true;
+    scene.add(behindFire11);
+    gsap.to(behindFire11.material, {
+        delay: 16,
+        opacity: 0.6,
+        duration: 3
+    });
+    let behindFireGeometry12 = new THREE.PlaneGeometry(15, 9.9);
+    let behindFireMaterial12 = new THREE.MeshBasicMaterial({
+        color: 0xFFD700,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindFire12 = new THREE.Mesh(behindFireGeometry12, behindFireMaterial12);
+    behindFire12.position.set(24, 64.05, 54.5);
+    behindFire12.needDestroy = true;
+    scene.add(behindFire12);
+    gsap.to(behindFire12.material, {
+        delay: 14,
+        opacity: 0.6,
+        duration: 3
+    });
+}
+
+function disasterSmoke() {
+	const smokeGeo = new THREE.RingGeometry( .125, .32, 8, 10, 3, 4.5 );
+	const smokeMaterial = new THREE.MeshBasicMaterial( { color: 0x444444, transparent: true, side: THREE.DoubleSide } );
+	for(let p=0; p<80; p++) {
+		let smokePuff04 = new THREE.Mesh(smokeGeo, smokeMaterial);
+		smokePuff04.needDestroy = true;
+		smokePuff04.position.set(
+			((Math.random()*(28.0 - 3.5)) + 3.5),
+			((Math.random()*(24.9 -21.1)) + 21.1),		// 23.0 was 13.5
+			55
+	);
+		smokePuff04.scale.x = 5;
+		smokePuff04.rotation.x = 1.16;
+		smokePuff04.rotation.y = -0.12;
+		smokePuff04.rotation.z = Math.random()*2*Math.PI;
+//		smokePuff04.material.opacity = 0;
+		smokePuff04.material.opacity = 0.35;
+		smokePuff04Particles.push(smokePuff04);
+		scene.add(smokePuff04);
+}
+	const smokePlaneTextureLoader = new THREE.TextureLoader();
+//	const smokePlaneTexture = smokePlaneTextureLoader.load("./externals/disasters/DHfog.png" );
+	const smokePlaneTexture = smokePlaneTextureLoader.load("./externals/disasters/fog01_thick-fog.png" );
+		// I also tried the above with "foggyFromIce4.png" );
+	const smokePlaneMaterial = new THREE.MeshLambertMaterial({ map: smokePlaneTexture, transparent: true, side: THREE.DoubleSide });
+	let smokePlaneGeo = new THREE.PlaneBufferGeometry(2,1.2);
+	for(let p=0; p<70; p++) {
+		let smokePlane04 = new THREE.Mesh(smokePlaneGeo, smokePlaneMaterial);
+		smokePlane04.needDestroy = true;
+		smokePlane04.position.set(
+			((Math.random()*(28.0 - 3.5)) + 3.5),
+			((Math.random()*(24.9 -21.1)) + 21.1),		// 23.0 was 13.5
+			55
+	);
+		smokePlane04.rotation.x = 1.16;
+		smokePlane04.rotation.y = -0.12;
+		smokePlane04.rotation.z = Math.random()*2*Math.PI;
+//		smokePlane04.material.opacity = 0;
+		smokePlane04.material.opacity = 0.35;
+		smokePlane04Particles.push(smokePlane04);
+		// animation for smokePlane04Particles in within render()
+		scene.add(smokePlane04);
+	}
+	const smokeKnotGeometry = new THREE.TorusKnotGeometry(0.4, 0.103, 35, 7, 3, 6); 
+	const smokeKnotMaterial = new THREE.MeshBasicMaterial( { color: 0x000000 } ); 
+//	const smokeKnot04 = new THREE.Mesh( smokeKnotGeometry, smokeKnotMaterial );
+	for(let p=0; p<140; p++) {
+		let smokeKnot04 = new THREE.Mesh(smokeGeo, smokeMaterial);
+		smokeKnot04.needDestroy = true;
+		smokeKnot04.position.set(
+			((Math.random()*(28.0 - 3.5)) + 3.5),
+			((Math.random()*(24.9 -21.1)) + 21.1),		// 24.9 was 13.5
+			55
+		);
+		smokeKnot04.scale.x = 5;
+		smokeKnot04.rotation.x = 1.16;
+		smokeKnot04.rotation.y = -0.12;
+		smokeKnot04.rotation.z = Math.random()*2*Math.PI;
+//		smokeKnot04.material.opacity = 0;
+		smokeKnot04.material.opacity = 0.35;
+		smokeKnot04Particles.push(smokeKnot04);
+		scene.add(smokeKnot04);
+	}
+	// After the preceding has been going for six seconds, the following plane fades in over three seconds
+    let behindSmokeGeometry04 = new THREE.PlaneGeometry(28.5, 4.8);
+    let behindSmokeMaterial04 = new THREE.MeshBasicMaterial({
+        color: 0x444444,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindSmoke04 = new THREE.Mesh(behindSmokeGeometry04, behindSmokeMaterial04);
+    behindSmoke04.needDestroy = true;
+    behindSmoke04.position.set(15.75, 23.0, 54.5);
+    scene.add(behindSmoke04);
+
+    // Next, wait one second, then the following plane fades in over three seconds
+    let behindSmokeGeometry05 = new THREE.PlaneGeometry(28.5, 6.9);
+    let behindSmokeMaterial05 = new THREE.MeshBasicMaterial({
+        color: 0x444444,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindSmoke05 = new THREE.Mesh(behindSmokeGeometry05, behindSmokeMaterial05);
+    behindSmoke05.needDestroy = true;
+    behindSmoke05.position.set(15.75, 29.45, 54.5);
+    scene.add(behindSmoke05);
+    // Fade-in and timing logic for behindSmoke04 and behindSmoke05
+    gsap.to(behindSmoke04.material, {
+        delay: 6,
+        opacity: 0.6,
+        duration: 3,
+        onComplete: function() {
+            gsap.to(behindSmoke05.material, {
+                delay: 0,
+                opacity: 0.6,
+                duration: 3
+            });
+        }
+    });
+    let behindSmokeGeometry06 = new THREE.PlaneGeometry(31.5, 6.3);
+    let behindSmokeMaterial06 = new THREE.MeshBasicMaterial({
+        color: 0x444444,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindSmoke06 = new THREE.Mesh(behindSmokeGeometry06, behindSmokeMaterial06);
+    behindSmoke06.needDestroy = true;
+    behindSmoke06.position.set(15.75, 36.65, 54.5);
+    scene.add(behindSmoke06);
+    gsap.to(behindSmoke06.material, {
+        delay:11,
+        opacity: 0.6,
+        duration: 3,
+    });
+    let behindSmokeGeometry07 = new THREE.PlaneGeometry(31.5, 6.4);
+    let behindSmokeMaterial07 = new THREE.MeshBasicMaterial({
+        color: 0x444444,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindSmoke07 = new THREE.Mesh(behindSmokeGeometry07, behindSmokeMaterial07);
+    behindSmoke07.needDestroy = true;
+    behindSmoke07.position.set(15.75, 43.6, 54.5);
+    scene.add(behindSmoke07);
+    gsap.to(behindSmoke07.material, {
+        delay:13,
+        opacity: 0.6,
+        duration: 3,
+    });
+    let behindSmokeGeometry08 = new THREE.PlaneGeometry(31.5, 6.8);
+    let behindSmokeMaterial08 = new THREE.MeshBasicMaterial({
+        color: 0x444444,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindSmoke08 = new THREE.Mesh(behindSmokeGeometry08, behindSmokeMaterial08);
+    behindSmoke08.needDestroy = true;
+    behindSmoke08.position.set(15.75, 50.8, 54.5);
+    scene.add(behindSmoke08);
+    gsap.to(behindSmoke08.material, {
+        delay:15,
+        opacity: 0.6,
+        duration: 3,
+    });
+    let behindSmokeGeometry09 = new THREE.PlaneGeometry(31.5, 3.7);
+    let behindSmokeMaterial09 = new THREE.MeshBasicMaterial({
+        color: 0x444444,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindSmoke09 = new THREE.Mesh(behindSmokeGeometry09, behindSmokeMaterial09);
+    behindSmoke09.needDestroy = true;
+    behindSmoke09.position.set(15.75, 56.65, 54.5);
+    scene.add(behindSmoke09);
+    gsap.to(behindSmoke09.material, {
+        delay:17,
+        opacity: 0.6,
+        duration: 3,
+    });
+    let behindSmokeGeometry10 = new THREE.PlaneGeometry(15, 5.1);
+    let behindSmokeMaterial10 = new THREE.MeshBasicMaterial({
+        color: 0x444444,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindSmoke10 = new THREE.Mesh(behindSmokeGeometry10, behindSmokeMaterial10);
+    behindSmoke10.needDestroy = true;
+    behindSmoke10.position.set(7.5, 61.65, 54.5);
+    scene.add(behindSmoke10);
+    gsap.to(behindSmoke10.material, {
+        delay:19,
+        opacity: 0.6,
+        duration: 3,
+    });
+    let behindSmokeGeometry11 = new THREE.PlaneGeometry(15, 4.2);
+    let behindSmokeMaterial11 = new THREE.MeshBasicMaterial({
+        color: 0x444444,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindSmoke11 = new THREE.Mesh(behindSmokeGeometry11, behindSmokeMaterial11);
+    behindSmoke11.needDestroy = true;
+    behindSmoke11.position.set(7.5, 66.9, 54.5);
+    scene.add(behindSmoke11);
+    gsap.to(behindSmoke11.material, {
+        delay:21,
+        opacity: 0.6,
+        duration: 3,
+    });
+    let behindSmokeGeometry12 = new THREE.PlaneGeometry(15, 9.9);
+    let behindSmokeMaterial12 = new THREE.MeshBasicMaterial({
+        color: 0x444444,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindSmoke12 = new THREE.Mesh(behindSmokeGeometry12, behindSmokeMaterial12);
+    behindSmoke12.needDestroy = true;
+    behindSmoke12.position.set(24, 64.05, 54.5);
+    scene.add(behindSmoke12);
+    gsap.to(behindSmoke12.material, {
+        delay:19,
+        opacity: 0.6,
+        duration: 3,
+    });
+}
+
+function disasterForce() {
+    const forceLetters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'Z'];
+// Next line is old version:
+//    const forceLetters = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q'];
+    var forceMeshes = [];
+
+    // Load and create force planes
+    const textureLoader = new THREE.TextureLoader();
+    forceLetters.forEach(letter => {
+        const texture = textureLoader.load(`./externals/disasters/Tank_${letter}.png`);
+        const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.FrontSide });
+        const geometry = new THREE.PlaneGeometry(31.5, 6.8);
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(15.75, 50.8, 54.5);
+        mesh.needDestroy = true;
+        forceMeshes.push(mesh);
+    });
+    const stillTankTextureLoader = new THREE.TextureLoader();
+    const stillTankTexture = stillTankTextureLoader.load('./externals/disasters/Tank_A.png');
+    const stillTankMaterial = new THREE.MeshBasicMaterial({ map: stillTankTexture, transparent: true, opacity: 0, side: THREE.FrontSide });
+    const stillTankGeometry01 = new THREE.PlaneGeometry(31.5, 6.8);
+    const stillTank01 = new THREE.Mesh(stillTankGeometry01, stillTankMaterial);
+    stillTank01.needDestroy = true;
+    stillTank01.position.set(15.75, 50.8, 54.5);	// eventually to change to 50.8
+    scene.add(stillTank01);
+
+    let currentMeshIndex = 0;
+    const animateForce = () => {
+		// If currently displayed, remove from scene
+		if (forceMeshes[currentMeshIndex] && forceMeshes[currentMeshIndex].parent) {
+			scene.remove(forceMeshes[currentMeshIndex]);
+		}
+
+		if (currentMeshIndex < 9) {		// was 26
+			currentMeshIndex += 1;
+		} else if ((currentMeshIndex == 9)||(currentMeshIndex == 10)) {
+			stillTank01.material.opacity = 1;
+			currentMeshIndex += 1;
+		} else {
+			currentMeshIndex === 11;		// was 26
+//			animateForceTank();		// do not launch from here - jerky motion owing to refresh-rate
+		}
+
+		if (forceMeshes[currentMeshIndex]) {
+			scene.add(forceMeshes[currentMeshIndex]);
+		}
+		setTimeout(animateForce, 150);
+	};
+    // Start the animation
+    setTimeout(animateForce, 100);
+
+/*
+    const animateForceTank = () => {
+             if (stillTank01.position.x < 33) {
+	stillTank01.position.x += 0.8;
+             } else { stillTank01.position.x = 33.5; }
+	setTimeout(animateForceTank, 20);
+	};
+    // Start the animation
+    setTimeout(animateForceTank, 3900);
+*/
+
+    gsap.to(stillTank01.position, {
+        delay: 4.5,
+        x: 33.5,
+        duration: 4.5
+    });
+    let behindForceGeometry09 = new THREE.PlaneGeometry(31.5, 3.7);
+    let behindForceMaterial09 = new THREE.MeshBasicMaterial({
+        color: 0x82825a,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindForce09 = new THREE.Mesh(behindForceGeometry09, behindForceMaterial09);
+    behindForce09.position.set(15.75, 56.65, 54.5);
+    behindForce09.needDestroy = true;
+    scene.add(behindForce09);
+    gsap.to(behindForce09.material, {
+        delay:9,
+        opacity: 0.6,
+        duration: 4
+    });
+    let behindForceGeometry10 = new THREE.PlaneGeometry(15, 5.1);
+    let behindForceMaterial10 = new THREE.MeshBasicMaterial({
+        color: 0x82825a,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindForce10 = new THREE.Mesh(behindForceGeometry10, behindForceMaterial10);
+    behindForce10.position.set(7.5, 61.65, 54.5);
+    behindForce10.needDestroy = true;
+    scene.add(behindForce10);
+    gsap.to(behindForce10.material, {
+        delay: 12,
+        opacity: 0.6,
+        duration: 3
+    });
+    let behindForceGeometry11 = new THREE.PlaneGeometry(15, 4.2);
+    let behindForceMaterial11 = new THREE.MeshBasicMaterial({
+        color: 0x82825a,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindForce11 = new THREE.Mesh(behindForceGeometry11, behindForceMaterial11);
+    behindForce11.position.set(7.5, 66.9, 54.5);
+    behindForce11.needDestroy = true;
+    scene.add(behindForce11);
+    gsap.to(behindForce11.material, {
+        delay: 14,
+        opacity: 0.6,
+        duration: 3
+    });
+    let behindForceGeometry12 = new THREE.PlaneGeometry(15, 9.9);
+    let behindForceMaterial12 = new THREE.MeshBasicMaterial({
+        color: 0x82825a,
+        transparent: true,
+        opacity: 0,
+        side: THREE.FrontSide
+    });
+    const behindForce12 = new THREE.Mesh(behindForceGeometry12, behindForceMaterial12);
+    behindForce12.position.set(24, 64.05, 54.5);
+    behindForce12.needDestroy = true;
+    scene.add(behindForce12);
+    gsap.to(behindForce12.material, {
+        delay: 12,
+        opacity: 0.6,
+        duration: 3
+    });
+}
+
+function abortDisasters() {
+	function clearTimeouts() {
+    // This will clear all timeouts. If there are specific timeouts you want to keep, 
+    // you'll need to adjust this.
+    let id = window.setTimeout(function() {}, 0);
+    while (id--) {
+        window.clearTimeout(id);
+    }
+	}
+	async function removeDisasterObjects() {
+		// List all objects you've added to the scene in the disaster functions
+		while (scene.children.filter(object => object.needDestroy === true).length > 0) {
+				await scene.children.forEach((object) => {
+					if (object.needDestroy == true) {
+						// If the object has children, remove them as well
+						if (object.children) {
+							object.children.forEach(child => {
+								scene.remove(child);
+							});
+						}
+						scene.remove(object);
+					}
+			});
+		}
+	}
+
+	function clearParticleArrays() {
+		// Empty the particle arrays
+		smokePuff04Particles.length = 0;
+		smokePlane04Particles.length = 0;
+		smokeKnot04Particles.length = 0;
+		fogPuff05Particles.length = 0;
+		fogTorus05Particles.length = 0;
+		// Add other particle arrays if any...
+	}
+
+    // Clear any existing timeouts
+    clearTimeouts();
+    // Empty the particle arrays
+    clearParticleArrays();
+    // Remove objects created by disaster functions
+    removeDisasterObjects();
+}
+
+function categoryGo(catPass)
+{
+	var cx = 0; var cy = 0; var cz = 1440;
+	console.log("this was passed to isolate_area/categoryGo");
+	if (catPass == "c1") { cx = 15.75; cy = 3.6; cz = 485; }
+	if (catPass == "c2") { cx = 15.75; cy = 10.7; cz = 485; }
+	if (catPass == "c3") { cx = 15.75; cy = 17; cz = 485; }
+	if (catPass == "c4") { cx = 15.75; cy = 23; cz = 485; }
+	if (catPass == "c5") { cx = 15.75; cy = 29; cz = 485; }
+	if (catPass == "c6") { cx = 15.75; cy = 36.8; cz = 485; }
+	if (catPass == "c7") { cx = 15.75; cy = 43.6; cz = 485; }
+	if (catPass == "c8") { cx = 15.75; cy = 50.8; cz = 485; }
+	if (catPass == "c9") { cx = 15.75; cy = 56.7; cz = 485; }
+	if (catPass == "c10") { cx = 7.511; cy = 62.0; cz = 290; }
+	if (catPass == "c11") { cx = 7.511; cy = 67.253; cz = 290; }
+	if (catPass == "c12") { cx = 23.5; cy = 65.194; cz = 355; }
+	console.log("miniPassed is " + catPass + " - " + cx + " - " + cy + " " + cz);
+	let p = {dur: 3.2, x: cx, y: cy, z: cz};
+	moveControlsTo(p);
+}
+function sectionGo(secPass)
+{
+	var sx = 0; var sy = 0; var sz = 1440;
+	console.log("this was passed to isolate_area/sectionGo");
+	if (secPass == "s1.1") { sx = 15.018; sy = 1.948; sz = 257; }
+	if (secPass == "s1.2") { sx = 11.643; sy = 2.623; sz = 257; }
+	if (secPass == "s1.3") { sx = 20.785; sy = 3.844; sz = 257; }
+	if (secPass == "s1.4") { sx = 4.659; sy = 4.683; sz = 257; }
+	if (secPass == "s2.1") { sx = 4.598; sy = 8.424; sz = 257; }
+	if (secPass == "s2.2") { sx = 4.891; sy = 10.042; sz = 257; }
+	if (secPass == "s2.3") { sx = 18.151; sy = 10.555; sz = 257; }
+	if (secPass == "s2.4") { sx = 6.838; sy = 11.924; sz = 257; }
+	if (secPass == "s2.5") { sx = 18.345; sy = 12.358; sz = 257; }
+	if (secPass == "s2.6") { sx = 23.752; sy = 12.792; sz = 257; }
+	if (secPass == "s2.7") { sx = 28.005; sy = 12.817; sz = 257; }
+	if (secPass == "s3.1") { sx = 26.26; sy = 16.677; sz = 257; }
+	if (secPass == "s3.2") { sx = 25.747; sy = 19.045; sz = 257; }
+	if (secPass == "s3.3") { sx = 20.06; sy = 18.202; sz = 257; }
+	if (secPass == "s3.4") { sx = 3.401; sy = 18.964; sz = 257; }
+	if (secPass == "s3.5") { sx = 11.376; sy = 18.939; sz = 257; }
+	if (secPass == "s4.1") { sx = 14.613; sy = 22.463; sz = 257; }
+	if (secPass == "s4.2") { sx = 5.007; sy = 22.828; sz = 257; }
+	if (secPass == "s4.3") { sx = 11.647; sy = 22.297; sz = 257; }
+	if (secPass == "s4.4") { sx = 23.312; sy = 23.795; sz = 257; }
+	if (secPass == "s5.1") { sx = 7.144; sy = 27.839; sz = 257; }
+	if (secPass == "s5.2") { sx = 20.291; sy = 28.664; sz = 257; }
+	if (secPass == "s5.3") { sx = 26.778; sy = 29.398; sz = 257; }
+	if (secPass == "s5.4") { sx = 8.747; sy = 29.702; sz = 257; }
+	if (secPass == "s6.0") { sx = 12.225; sy = 35.583; sz = 257; }
+	if (secPass == "s6.1") { sx = 7.878; sy = 35.914; sz = 257; }
+	if (secPass == "s6.2") { sx = 17.619; sy = 36.433; sz = 257; }
+	if (secPass == "s6.3") { sx = 26.582; sy = 35.87; sz = 257; }
+	if (secPass == "s7.1") { sx = 1.538; sy = 40.939; sz = 257; }
+	if (secPass == "s7.2") { sx = 7.929; sy = 42.073; sz = 257; }
+	if (secPass == "s7.3") { sx = 16.963; sy = 42.58; sz = 257; }
+	if (secPass == "s7.4") { sx = 24.237; sy = 41.53; sz = 257; }
+	if (secPass == "s7.5") { sx = 16.34; sy = 45.48; sz = 257; }
+	if (secPass == "s8.1") { sx = 3.254; sy = 48.855; sz = 257; }
+	if (secPass == "s8.2") { sx = 11.997; sy = 51.084; sz = 257; }
+	if (secPass == "s8.3") { sx = 21.933; sy = 49.828; sz = 257; }
+	if (secPass == "s8.4") { sx = 22.708; sy = 51.672; sz = 257; }
+	if (secPass == "s8.5") { sx = 16.626; sy = 51.763; sz = 257; }
+	if (secPass == "s8.6") { sx = 5.576; sy = 51.798; sz = 257; }
+	if (secPass == "s9.0") { sx = 2.936; sy = 56.428; sz = 257; }
+	if (secPass == "s9.1") { sx = 13.933; sy = 57.122; sz = 257; }
+	if (secPass == "s9.2") { sx = 5.904; sy = 55.963; sz = 257; }
+	if (secPass == "s9.3") { sx = 21.686; sy = 57.581; sz = 257; }
+	if (secPass == "s10.0") { sx = 9.66; sy = 60.625; sz = 257; }
+	if (secPass == "s10.1") { sx = 3.473; sy = 62.359; sz = 257; }
+	if (secPass == "s10.2") { sx = 11.748; sy = 63.056; sz = 257; }
+	if (secPass == "s11.1") { sx = 5.374; sy = 65.438; sz = 257; }
+	if (secPass == "s11.2") { sx = 7.612; sy = 67.007; sz = 257; }
+	if (secPass == "s12.1") { sx = 22.278; sy = 61.251; sz = 257; }
+	if (secPass == "s12.2") { sx = 19.774; sy = 64.394; sz = 257; }
+	if (secPass == "s12.3") { sx = 24.624; sy = 67.86; sz = 257; }
+	console.log("miniPassed is " + secPass + " - " + sx + " - " + sy + " " + sz);
+	let p = {dur: 3.2, x: sx, y: sy, z: sz};
+	moveControlsTo(p);
+}
+
+window.onload = ()=>{
+	window.addEventListener('message', mainFramePostMessageListener, false);
+};
+
+</script>
+<div id="miniSent">
+	 <FORM NAME="displayForm">
+	<INPUT TYPE="hidden" NAME="leftpanel" VALUE="~"><br>
+	 </FORM>
+</div>
+</body>
+</html>

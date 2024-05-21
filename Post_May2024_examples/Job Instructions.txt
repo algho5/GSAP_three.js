@@ -1,0 +1,43 @@
+This project is intended to run in a localhost environment via an Internet Information Sevices (IIS) Manager; I use the one built into Windows, but others should be interchangeable with it. Load the directories and files into the program.
+
+Navigate to the directory \Code__2024May19\Post_May2024_examples
+
+Load the file named "AA__LOAD_THIS__frames_multiple_28.html".
+
+You will see in the browser window a two-panel scene.
+
+The right-side panel has most of the program content, and most of the changes that will occur onscreen will occur on the right-side panel. To see how the scene can change, you can use the controls in the upper-right corner to move the zoom setting of the right-side scene. The controls adjust the z-axis position. You can also left-drag with your mouse. I don't recommend right-dragging, although if you do, you can reset the scene.
+
+In the left-side panel, you can click and type "w" or "W" to launch a gsap function which will refresh the right-side panel scene.
+
+The rest of the instructions for fixing the project, while using this screen, will entail typing a character on the keyboard after clicking on the left-side panel to establish that it is this scene which will receive your instructions. However, these commands will be transferred to the script running the right-side panel scene, so it is that script which you will change.
+
+The code which runs that gsap-controlled movement of the right-side scene, is in the file "frame_main_23.html". Open this file in a plain-text editor or your preferred code editor.
+
+With the left-panel chosen, type "2" to make the "gsapAnim2_7a" and "gsapAnim2_7b" objects appear on screen. They will appear in the upper right, atop some of the blue background. Together, the "gsapAnim2_7a" and "gsapAnim2_7b" figures will look like a steamboat paddle wheel.
+
+With the left-panel chosen, type "3". This will make the paddle wheel turn clockwise. This is controlled by the part of the script which begins "if(tokn == '2_7a') {}".
+
+At present, this subfunction is programmed to spin for over 28 minutes if not stopped (the 1700 seconds specified in the code). How the function is intended to work is that pressing "4" with the left-panel chosen would issue a command that cuts short the animation. This is the part of the code that needs to be fixed. This is the part of the script which begins "if (tokn == 'stop') {}".
+
+I actually resorted to the "duration: 1700" parameter out of failed efforts to use a combination of a short duration and the repeat function. A long duration seemed useful for testing different commands within "(tokn == 'stop')", since I could be sure that the cessation of spinning wouldn't be due to its timing out.
+
+I actually prefer something like:
+
+	var anim2_7a_tl = gsap.timeline({repeat: -1, repeatDelay: 0});
+	anim2_7a_tl.to(gsapAnim2_7a.rotation, {
+	            z: -7.85398163397,
+	            duration: 17
+	            });
+
+(I needed to use "z:" values that are multiples of pi that will lead to the wheel spokes being in the same place as they started, so that the next iteration won't start with a sudden jerk, particularly not a jerk backwards.)
+
+I noticed that with repeat functions (I also tried "repeat: 10" and other numbers), the wheel would slow a little as it neared the end of a cycle then gradually gain speed again with the start of a new iteration. This created a pleasant effect. Therefore, I would be happy if you reintroduce to the script "repeat: -1" and a short duration.
+
+I don't mind if there is some last turning after "4" is pressed. It's fine if a short cycle continues to its end, as long as there are no new iterations after that. I noticed when I had "repeat: 10" that with different code under "(tokn == 'stop')", I could get the spinning to temporarily sputter and stop, but the spinning would start up again at what was probably the start of the next iteration in the script. I had hoped that I could get "anim2_7a_tl.totalProgress(1.0);" to stop all remaining iterations from executing, but I never did. Unfortunately, with "duration: 1700", though it is the only one iteration, I wasn't able to get the timepoint to skip to the end and thereby stop the animation.
+
+I have included a file named "xx function gsap -- earlier attempts at code.txt" which shows various failed attempts at writing code that would make the "(tokn == 'stop')" part of the script actually stop the paddle wheel's spinning.
+
+The gsap web site shows that it's possible to nest code, and to create commands that iterate only within one part of the code, and then have a later user intervention issue a command that makes the gsap string skip to a later point in the nested code. I never tried that, although its seems a promising approach.
+
+It is my hope that this information should answer the questions you are likely to have as someone who has not before encountered this project.

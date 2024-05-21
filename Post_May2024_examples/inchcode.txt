@@ -1,0 +1,45 @@
+function reviseZPos(zPosMain2)
+{
+   var zPosMain = zPosMain2;
+   parent.minimapframe.document.displayForm.zPosValue.value = zPosMain;
+}
+function passWR(WR2) {
+   var WR3 = WR2;
+   parent.minimapframe.document.displayForm.WRValue.value = WR3;
+}
+function passSX(SX2) {
+   var SX3 = SX2;
+   parent.minimapframe.document.displayForm.SXValue.value = SX3;
+}
+function passSY(SY2) {
+   var SY3 = SY2;
+   parent.minimapframe.document.displayForm.SYValue.value = SY3;
+}
+function passSZ(SZ2) {
+   var SZ3 = SZ2;
+   parent.minimapframe.document.displayForm.SZValue.value = SZ3;
+}
+function passPX(PX2) {
+   var PX3 = PX2;
+   parent.minimapframe.document.displayForm.PXValue.value = PX3;
+}
+function passPY(PY2) {
+   var PY3 = PY2;
+   parent.minimapframe.document.displayForm.PYValue.value = PY3;
+}
+function passPZ(PZ2) {
+   var PZ3 = PZ2;
+   parent.minimapframe.document.displayForm.PZValue.value = PZ3;
+}
+function freshMinimap() {
+   parent.minimapframe.postMessage('callUpdateBox','*'); //https://en.wikipedia.org/wiki/Web_Messaging
+}
+function miniSend(passed) {
+   var panvalue = passed;
+//   alert("sent from inchcode: " + panvalue);
+//   parent.mainframe.alert("sent from mini to main: " + panvalue);
+   //parent.mainframe.document.alert("sent from mini to main");
+   //parent.mainframe.document.sentByMini();
+   parent.mainframe.document.displayForm.leftpanel.value = panvalue;
+   parent.mainframe.postMessage('callSentByMini','*');
+}

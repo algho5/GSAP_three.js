@@ -1,0 +1,79 @@
+//container = parent.frames[0];
+
+function reviseZPos(zPosMain2)
+{
+   var zPosMain = zPosMain2;
+//   alert("zPosMain is: " + zPosMain);
+   parent.minimapframe.document.displayForm.zPosValue.value = zPosMain;
+//   parent.minimapframe.document.displayForm.zPosValue.value = "2";
+//   parent.getElementById('minimapframe').document.displayForm.zPosValue.value = "2";
+//   minimapframe.document.displayForm.zPosValue.value = "2";
+//   minimapframe.document.displayForm.zPosValue.value = zPosMain;
+//   var curZPos = container.document.displayForm.zPosValue.value;
+//   container.document.displayForm.zPosValue.value = zPosMain;
+//   container.frames[0].document.displayForm.zPosValue.value = zPosMain;
+}
+
+function showZPos(zPosMain)
+{
+//  alert("zPos is " + zPosMain);
+}
+
+function secondLoad()
+{
+//   alert("This is coming from the container being loaded");
+}
+
+function passWR(WR2) {
+   var WR3 = WR2;
+   parent.minimapframe.document.displayForm.WRValue.value = WR3;
+}
+function passSX(SX2) {
+   var SX3 = SX2;
+   parent.minimapframe.document.displayForm.SXValue.value = SX3;
+}
+function passSY(SY2) {
+   var SY3 = SY2;
+   parent.minimapframe.document.displayForm.SYValue.value = SY3;
+}
+function passSZ(SZ2) {
+   var SZ3 = SZ2;
+   parent.minimapframe.document.displayForm.SZValue.value = SZ3;
+}
+function passPX(PX2) {
+   var PX3 = PX2;
+   parent.minimapframe.document.displayForm.PXValue.value = PX3;
+}
+function passPY(PY2) {
+   var PY3 = PY2;
+   parent.minimapframe.document.displayForm.PYValue.value = PY3;
+}
+function passPZ(PZ2) {
+   var PZ3 = PZ2;
+   parent.minimapframe.document.displayForm.PZValue.value = PZ3;
+}
+//function passBW(BordW2) {
+//   var BordW3 = BordW2;
+//   parent.minimapframe.document.displayForm.BordWValue.value = BordW3;
+	// this duplicates below
+//}
+//passBordW can be struck out in subsequently -- renamed -- versions of this file
+function passBordW(BordW2) {
+   var BordW3 = BordW2;
+   parent.minimapframe.document.displayForm.BordWValue.value = BordW3;
+}
+function freshMinimap() {
+   parent.minimapframe.postMessage('callUpdateBox','*'); //https://en.wikipedia.org/wiki/Web_Messaging
+
+//   parent.minimapframe.document.getElementById("yellBox").position.x = 10;
+//	yellBox.position.y = 45;
+
+//   alert("freshMinimap has been triggered");
+//   parent.minimapframe.document.alert('inside now');
+//   parent.minimapframe.document.animate();
+//   parent.minimapframe.document.render();
+//   window.opener().document.getElementById('btnSave').click();
+//   parent.minimapframe.document.getElementById('bgTexture').minimapAlert();
+//   parent.minimapframe.document.getElementById('bgTexture').click();
+}
+

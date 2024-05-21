@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+<title>three.js css2d - label</title>
+<link type="text/css" rel="stylesheet" href="main.css">
+<link href="favicon.ico" TYPE="Shortcut Icon">
+<style>
+   div { color: #FF9; 
+	font-size: 16px;
+	font-family: Arial, localArialReg, sans-serif;  
+//	text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black; 
+	letter-spacing: 1px;
+	text-align: left; }
+    canvas {
+        width: 100%;  /* let our container decide our size */
+        height: 100%;
+//        height: 596px;
+//	596px did not help with the text form boxes
+        display: block;
+    }
+    #container {
+      position: relative;  /* makes this the origin of its children */
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: 0;
+      }
+    #info {
+      position:absolute;
+      top: 730px;
+      text-align: left;
+      left: 20px;
+      right:0px;
+      }
+    #keyPressDiv {
+      position:absolute;
+      top: 605px;
+      text-align: left;
+      left: 20px;
+      right:0px;
+      font-size: 24px;
+      opacity: 0.8;
+      position:absolute;
+//      top: 650px;
+//      text-align: left;
+//      left: 2px;
+//      right:0px;
+//      height: 350px;
+//      background-color: black;
+      }
+</style>
+<script language="javascript" SRC="inchcode.txt"></script>
+</head>
+<body>
+<div id="container">
+<canvas id="canvas" ></canvas>
+</div>
+
+<script src="geoInputs.js"></script>
+<script type="module">
+import * as THREE from '../build/three.module.js';
+
+// import { OrbitControls } from './jsm/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from './jsm/renderers/CSS2DRenderer.js';
+import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+
+var scene, renderer, camera, labelRenderer, topCamera;
+var controls;
+var backgroundUrl = "./externals/OPAR_branches_background_for_minimap.png";
+var bgTexture;
+//var controls;
+var container;
+var cheight, cwidth;
+var mapWidth = 267, mapHeight = 576;
+// coefficient to prevent distortion of the yellowBox width
+var addcoef = 0.07;
+
+// parameter for calculating the height of the yellowBox in relation to the distance from the camera to the gridXY
+var scaleBoxParam = 19;
+var yellBox; // yellow box on topCamera
+
+window.addEventListener('DOMContentLoaded', (event) => {
+	init(); 
+});
+
+function init() {
+
+	container = document.getElementById( 'canvas' );
+	camera = new THREE.PerspectiveCamera (3, container.clientWidth / container.clientHeight, 0.01, 8000);
+	camera.position.set(15.75,35,1440);
+
+	scene = new THREE.Scene();
+
+	const light = new THREE.DirectionalLight(0xFFFFFF, 1);
+	light.castShadow = true;
+	light.position.set(15.75, 35, 1440);
+	light.target.position.set(15.75, 35, 45);
+ 
+	light.shadow.bias = -0.004;
+	light.shadow.mapSize.width = 2048;
+	light.shadow.mapSize.height = 2048;
+ 
+	scene.add(light);
+	scene.add(light.target);
+
+// topCamera for minimap 
+	topCamera = new THREE.OrthographicCamera (
+		-mapWidth/16.4, 
+		mapWidth/16.4, 
+		mapHeight/16.4, 
+		-mapHeight/16.4, 
+		0.01, 
+		1000);
+	topCamera.position.set (15.75,35, 9999);
+
+	// create new layer for yellow box to be invisible to the main camera
+	topCamera.layers.enable( 1 ); // camera now sees default layer 0 and layer 1 
+	topCamera.layers.disable( 0 ); // disable all objects from layers 0 for topCamera
+	// create yellow box
+	yellowBox();
+
+	//load background image for minimap
+	var loader = new THREE.TextureLoader();
+	loader.setCrossOrigin("");
+
+	bgTexture = loader.load(backgroundUrl);	
+//	bgTexture.style.position.z = 1;
+
+	const backdropBoxSky = new THREE.PlaneGeometry( 800, 800, 1 );
+	const backdropMaterialSky = new THREE.MeshBasicMaterial( {color: 0x87ceeb} );
+	const backdropSky = new THREE.Mesh( backdropBoxSky, backdropMaterialSky );
+	backdropSky.position.set (15.75, 15.75, 33.0);
+	scene.add( backdropSky );
+
+	renderer = new THREE.WebGLRenderer({antialias: true, canvas: container});
+	renderer.setPixelRatio( window.devicePixelRatio );
+	renderer.setSize( top.innerWidth, top.innerHeight );
+	//document.body.appendChild( renderer.domElement );
+
+	labelRenderer = new CSS2DRenderer();
+	labelRenderer.setSize( top.innerWidth, top.innerHeight );
+	labelRenderer.domElement.style.position = 'absolute';
+	labelRenderer.domElement.style.top = '0px';
+	document.body.appendChild( labelRenderer.domElement );
+	//container.appendChild( labelRenderer.domElement );
+
+//	controls = new OrbitControls( camera, labelRenderer.domElement );
+	//controls = new OrbitControls( camera, container );
+//	controls.screenSpacePanning = true;
+//	controls.target.set(15.75, 35, 0);
+
+
+	// NEXT CODE SEES TO IT THAT WHEN X/Y/Z CHANGES, THE LABELS ARE UPDATED 
+
+//	controls.addEventListener( 'change', e => {
+//		updateBox();
+//		render();
+//	});
+
+	// add event listener for window resize event. It could be deleted if it's not neccesary
+	window.addEventListener ('resize', onWindowResize, false);
+	render();
+	animate();
+}
+
+// function for window resize event handler
+function resizeRendererToDisplaySize(renderer) {
+
+    const pixelRatio = window.devicePixelRatio;
+    const width = container.clientWidth * pixelRatio | 0;
+    const height = container.clientHeight * pixelRatio | 0;
+    const needResize = container.width !== width || container.height !== height;
+    if (needResize) {
+        renderer.setSize(width, height, false);
+        labelRenderer.setSize( width, height );
+    }
+    return needResize;
+}
+
+// window resize event handler
+function onWindowResize()
+{
+    if (resizeRendererToDisplaySize(renderer)) {
+    	camera.aspect = container.clientWidth / container.clientHeight;
+    	camera.updateProjectionMatrix();
+    	render();
+    }
+}
+
+var yellBord;
+var bWv = 0.6;
+
+// create and draw yellow box with camera view height and width
+function yellowBox() {
+
+	// set width and height to 1, 1. To then scale them to the dimensions of the camera view
+	let planeGeometry = new THREE.PlaneGeometry(1, 1, 2, 2);
+
+	// colors of scaling box and its border can be changed here
+	let colors = {
+		color: "yellow",
+		borderColor: "orange"
+	}
+
+	let m = new THREE.MeshBasicMaterial({
+	  		color: colors.color,
+    		side: THREE.DoubleSide,
+    		transparent: true,
+    		opacity: 0.7,	// opacity of scaling box
+//		z-index: 9,
+		  	onBeforeCompile: shader => {
+			  	shader.uniforms.size = m.userData.uniforms.size;
+			    shader.uniforms.borderWidth = (m.userData.uniforms.borderWidth);
+			    shader.uniforms.borderColor = m.userData.uniforms.borderColor;
+			    shader.fragmentShader = `
+			    	uniform vec2 size;
+			      uniform float borderWidth;
+			      uniform vec3 borderColor;
+			      ${shader.fragmentShader}
+			    `.replace(
+			    	`#include <color_fragment>`,
+			      `
+			      	#include <color_fragment>
+			        vec3 col = diffuseColor.rgb;
+			        vec2 s = (size * 0.5) - borderWidth;
+			        
+			        vec2 ruv = abs((vUv - 0.5) * size);
+			        vec2 fe = fwidth(ruv);
+			        float e = min(fe.x, fe.y) * 0.5;
+			        float border = smoothstep(s.x + e, s.x - e, ruv.x) * smoothstep(s.y + e, s.y - e, ruv.y);
+			   			diffuseColor.rgb = mix(borderColor, col, clamp(border, 0., 1.));   
+			      `
+		    );
+	  }
+	});
+	m.defines = {"USE_UV":""};
+	m.userData = {
+		uniforms: {
+	  	size: {value: new THREE.Vector2(1, 1)},
+	    borderWidth: {value: bWv },	// border width can be changed here
+	    borderColor: {value: new THREE.Color(colors.borderColor)}
+	  }
+	}
+
+	yellBox = new THREE.Mesh( planeGeometry, m);
+	yellBox.layers.set( 1 );	 // set yellBox and yellBord in layer 1
+	scene.add( yellBox );
+}
+
+var testBorderSize = true;
+
+// update yellow box with near-camera-plane dimensions
+function updateBox() {
+
+	// add coefficient "addcoef" to prevent distortion of the yellowBox width
+	const cparam = (top.innerWidth + addcoef * top.innerWidth) / top.innerHeight; 
+
+	const scaleY = (camera.position.z - 50) / scaleBoxParam;	// 50 - it is gridXY.position.z
+	const scaleX = scaleY * cparam;
+
+	yellBox.scale.set( scaleX, scaleY, 1);	
+	yellBox.material.userData.uniforms.size.value.set(scaleX, scaleY);
+
+	// place yellowBox under topCamera
+	yellBox.position.set(camera.position.x, camera.position.y, topCamera.position.z - 1);
+
+	var zPosMini = document.displayForm.zPosValue.value;
+	
+	if(testBorderSize){
+	if ((zPosMini > 1400)) { bWv = 0.5 }
+	if ((zPosMini > 1280) && (zPosMini <= 1400)) { bWv = 0.6 }
+	if ((zPosMini > 1151) && (zPosMini <= 1280)) { bWv = 0.7 }
+	if ((zPosMini > 972) && (zPosMini <= 1151)) { bWv = 0.8 }
+	if ((zPosMini > 875) && (zPosMini <= 972)) { bWv = 0.9 }
+	if ((zPosMini > 800) && (zPosMini <= 875)) { bWv = 1.0 }
+	if ((zPosMini > 729) && (zPosMini <= 800)) { bWv = 1.2 }
+	if ((zPosMini > 647) && (zPosMini <= 729)) { bWv = 1.4 }
+	if ((zPosMini > 598) && (zPosMini <= 647)) { bWv = 1.6 }
+	if ((zPosMini > 517) && (zPosMini <= 598)) { bWv = 1.7 }
+	if ((zPosMini > 452) && (zPosMini <= 517)) { bWv = 1.8 }
+	if ((zPosMini > 405) && (zPosMini <= 452)) { bWv = 2.0 }
+	if ((zPosMini > 350) && (zPosMini <= 405)) { bWv = 2.3 }
+	if ((zPosMini > 322) && (zPosMini <= 350)) { bWv = 2.6 }
+	if ((zPosMini > 290) && (zPosMini <= 322)) { bWv = 3.0 }
+	if ((zPosMini > 275) && (zPosMini <= 290)) { bWv = 3.4 }
+	if ((zPosMini > 241) && (zPosMini <= 275)) { bWv = 3.8 }
+	if ((zPosMini > 208) && (zPosMini <= 241)) { bWv = 4.2 }
+	if ((zPosMini > 160) && (zPosMini <= 208)) { bWv = 4.7 }
+	if ((zPosMini < 160)) { bWv = 5.3 }
+	}
+	
+//	console.log('Setting yellBox.material.userData.uniforms.borderWidth.value to '+bWv);
+	yellBox.material.userData.uniforms.borderWidth.value = bWv;
+
+	var miniSXValue = document.displayForm.SXValue.value;
+	var miniSYValue = document.displayForm.SYValue.value;
+	var miniPXValue = document.displayForm.PXValue.value;
+	var miniPYValue = document.displayForm.PYValue.value;
+
+	yellBox.scale.x = miniSXValue;
+	yellBox.scale.y = miniSYValue;
+	yellBox.position.x = miniPXValue;
+	yellBox.position.y = miniPYValue;
+
+	if (yellBox.hasOwnProperty("scale")) {
+	  var scaleArray = yellBox.scale;
+	}
+	if (yellBox.hasOwnProperty("position")) {
+	  var positionArray = yellBox.position;
+        }
+}
+
+function createViewport(left, bottom, width, height, cam) {
+	//left = 1; bottom = 1; width = SCREEN_W-2; height = SCREEN_H-2; //0.5* //0.5*SCREEN_W+
+	renderer.setViewport (left,bottom,width,height);
+	renderer.setScissor(left,bottom,width,height);
+	renderer.setScissorTest (true);  // clip out "viewport"
+	cam.aspect = width/height;
+	cam.updateProjectionMatrix();
+	renderer.render (scene,cam);
+}
+
+function render()
+{
+	var SCREEN_W, SCREEN_H;
+
+	SCREEN_W = top.innerWidth;
+	SCREEN_H = top.innerHeight;
+
+	labelRenderer.render( scene, camera );
+
+	scene.background = null;	
+	createViewport(1, 1, SCREEN_W, SCREEN_H, camera);
+
+	scene.background = bgTexture;
+	createViewport(10, SCREEN_H-mapHeight-10, mapWidth, mapHeight, topCamera);	
+}
+
+function animate() {
+//	controls.update();
+	requestAnimationFrame( animate );
+	render(); 
+}
+
+function minmapFramePostMessageListener(event){
+	let message = event.data;
+	if(message == 'callUpdateBox'){
+		updateBox();
+	}else if(message.startsWith('evalInMinimap:')){
+		let code = message.substring('evalInMinimap:'.length);
+		eval(code);
+	}else{
+//		console.log('Ignoring message: '+message);
+	}
+};
+
+var labelText = "";
+//var labelText2 = "";		// NOT NEEDED -- forget START USING THIS SOON, CHANGE OTHER TO "1"
+//FUTURE PROGRAMMING TO POSSIBLY RE-DO THE USE OF KEYPRESS HEREIN. KEYPRESS IS SAID TO HAVE BEEN
+//DEPRECATED. PUT IN KEYDOWN IN PLACE OF KEYPRESS. THIS WILL NECESSITATE DOING IF-THEN CONDITIONS
+//USING EVENT.CODE IN SOME PLACES WHERE EVENT.KEY IS USED; EVENT.CODE USEFUL FOR GETTING THE KEY
+//STRUCK RATHER THAN THE SPECIFIC SHIFT/NO-SHIFT OF CAPITALS AND LOWERCASE, BUT EVENT.CODE DOESN'T
+//RETURN THE KEY STRICTLY AS THE LETTER (IT RETURNS MULTI-CHARACTER INDICATOR), SO CODE THAT GETS
+//THE ONE-CHARACTER LETTER (WHETHER CAPITAL OR LOWERCASE) MUST STILL BE IN PLACE.
+document.addEventListener("keypress", function(event) {
+   if (((event.key >= "a")&&(event.key <= "z"))||((event.key >= "A")&&(event.key <= "Z"))||
+   ((event.key >= "0")&&(event.key <= "9"))||(event.key === ".")||(event.key === "-")) {
+	if (event.key != "Enter") {
+	   labelText = labelText + event.key;
+	}
+   }
+   else { }
+   var firstChar = "";
+   if (labelText.length >= 1) {
+	firstChar = labelText.charAt(0);
+   }
+//	console.log("labelText.length is " + labelText.length);
+//		console.log("firstChar is " + firstChar);
+   if ((firstChar == "a")||(firstChar == "b")||((firstChar >= "d")&&(firstChar <= "k"))||((firstChar >= "m")&&(firstChar <= "r"))||
+	((firstChar >= "t")&&(firstChar <= "x"))||(firstChar == "A")||(firstChar == "B")||((firstChar >= "D")&&(firstChar <= "K"))||
+	((firstChar >= "M")&&(firstChar <= "R"))||((firstChar >= "T")&&(firstChar <= "X"))||((firstChar >= "0")&&(firstChar <= "9"))) {
+//			console.log("labelText: " + labelText);
+	   miniSend(event.key);
+	// next line temporary
+	//   document.getElementById('keyPressDiv').innerHTML = labelText;
+	   labelText = "";
+		//NOW: Make labelText go shorter (reset)
+   }
+   else if ((firstChar == "CapsLock")||(firstChar == "Shift") ) { return; }
+   else if ((firstChar == "y")||(firstChar == "Y")||(firstChar == "z")||(firstChar == "Z")) {
+		if ((firstChar == "y")||(firstChar == "Y")) {
+		        document.getElementById('keyPressDiv').style.opacity = 0.0; }
+		else if ((firstChar == "z")||(firstChar == "Z")) {
+		        document.getElementById('keyPressDiv').style.opacity = 0.8; }
+	   miniSend(event.key);
+	   labelText = "";
+	   }
+   else if ((firstChar == "c")||(firstChar == "C")||(firstChar == "l")||(firstChar == "L")||(firstChar == "s")||(firstChar == "S")) {
+//			console.log("labelText: " + labelText);
+//	   console.log(event.key + " is a character which remains in minimap");
+	   document.getElementById('keyPressDiv').innerHTML = labelText;
+	   if (event.key != "Enter") {
+//			if (firstChar =! null) {
+//			   alert("The event.key was not Enter");
+//		   console.log("The event.key was not Enter");
+	   }
+	   else if (event.key == "Enter") {
+		miniSend(labelText);
+		labelText = "";
+	   }
+	   else { }
+//		   return;
+	   }
+   else if ((firstChar == ".")||(event.key === "-")) {
+		labelText = "";
+	   }
+   else if (event.key != null) {
+//			   alert("nothing happens with " + event.key);
+//			console.log("nothing happens with " + event.key);
+//			miniSend(event.key);
+	   }
+	   else { }
+	   document.getElementById('keyPressDiv').innerHTML = labelText;
+});
+
+window.onload = ()=>{
+	window.addEventListener('message', minmapFramePostMessageListener, false);
+};
+
+</script>
+<div id="info">
+	 <FORM NAME="displayForm">
+	<INPUT TYPE="hidden" NAME="BordWValue" VALUE="1.6"><br>
+	<INPUT TYPE="hidden" NAME="zPosValue" VALUE="-1"><br>
+	<INPUT TYPE="hidden" NAME="SXValue" VALUE="0"><br>
+	<INPUT TYPE="hidden" NAME="SYValue" VALUE="0"><br>
+	<INPUT TYPE="hidden" NAME="SZValue" VALUE="0"><br>
+	<INPUT TYPE="hidden" NAME="PXValue" VALUE="0"><br>
+	<INPUT TYPE="hidden" NAME="PYValue" VALUE="0"><br>
+	<INPUT TYPE="hidden" NAME="PZValue" VALUE="0"><br>
+	<INPUT TYPE="hidden" NAME="WRValue" VALUE="0">
+	 </FORM>
+</div>
+<div id="keyPressDiv">
+</div>
+
+</body>
+</html>
